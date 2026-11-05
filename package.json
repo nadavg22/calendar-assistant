@@ -1,0 +1,10 @@
+{
+  "name": "calendar-assistant",
+  "version": "1.0.0",
+  "scripts": {},
+  "type": "commonjs",
+  "private": true,
+  "devDependencies": {
+    "@google/clasp": "^3.4.1"
+  }
+}

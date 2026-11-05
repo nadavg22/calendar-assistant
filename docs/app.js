@@ -1,0 +1,222 @@
+// Connection screen and chat screen.
+import {
+  call, getConnection, isHebrew, isValidUrl, load, post, remove, save, setConnection, showNotice,
+} from './api.js';
+import { openSettings } from './settings.js';
+
+const CHAT_KEY = 'chat';
+const SESSION_HOURS = 6;
+const MAX_SAVED_MESSAGES = 40;
+
+const $ = (id) => document.getElementById(id);
+const views = ['setup-view', 'chat-view', 'settings-view'];
+
+let chat = null;
+let busy = false;
+
+export function showView(id) {
+  views.forEach((view) => { $(view).hidden = view !== id; });
+}
+
+function newChat() {
+  return { session: 'app-' + crypto.randomUUID(), lastUsed: Date.now(), messages: [], pending: null };
+}
+
+// The backend forgets a conversation after a few hours, so the screen starts fresh too.
+function loadChat() {
+  const saved = load(CHAT_KEY);
+  const fresh = saved && Date.now() - saved.lastUsed < SESSION_HOURS * 3600000;
+  return fresh ? saved : newChat();
+}
+
+function saveChat() {
+  chat.lastUsed = Date.now();
+  chat.messages = chat.messages.slice(-MAX_SAVED_MESSAGES);
+  save(CHAT_KEY, chat);
+}
+
+function scrollToEnd() {
+  const scroller = $('scroller');
+  scroller.scrollTop = scroller.scrollHeight;
+}
+
+function messageNode(message) {
+  const item = document.createElement('li');
+  item.className = 'message ' + message.role;
+  const text = document.createElement('p');
+  text.dir = 'auto';
+  text.textContent = message.text;
+  item.append(text);
+  return item;
+}
+
+function renderPending() {
+  const pending = chat.pending;
+  $('proposal').hidden = !pending;
+  if (!pending) return;
+  const hebrew = isHebrew(pending.summary);
+  $('proposal-text').textContent = pending.summary;
+  $('confirm').textContent = hebrew ? 'אישור' : 'Confirm';
+  $('cancel').textContent = hebrew ? 'ביטול' : 'Cancel';
+}
+
+function render() {
+  $('log').replaceChildren(...chat.messages.map(messageNode));
+  $('empty').hidden = chat.messages.length > 0;
+  renderPending();
+  scrollToEnd();
+}
+
+function addMessage(role, text) {
+  chat.messages.push({ role, text });
+  $('log').append(messageNode({ role, text }));
+  $('empty').hidden = true;
+  saveChat();
+  scrollToEnd();
+}
+
+function setBusy(value) {
+  busy = value;
+  $('send').disabled = value;
+  $('confirm').disabled = value;
+  $('cancel').disabled = value;
+  $('thinking')?.remove();
+  if (value) {
+    const item = document.createElement('li');
+    item.id = 'thinking';
+    item.className = 'thinking';
+    item.setAttribute('aria-label', 'Thinking');
+    item.innerHTML = '<i></i><i></i><i></i>';
+    $('log').append(item);
+    scrollToEnd();
+  }
+}
+
+function handleError(error) {
+  if (error.code === 'unauthorized') {
+    showSetup('The token was rejected. Please enter it again.');
+  } else {
+    showNotice(error.message);
+  }
+}
+
+function applyResult(result) {
+  addMessage('assistant', result.reply);
+  chat.pending = result.pending || null;
+  saveChat();
+  renderPending();
+  scrollToEnd();
+}
+
+async function run(action, data) {
+  setBusy(true);
+  try {
+    applyResult(await call(action, { session: chat.session, ...data }));
+    return true;
+  } catch (error) {
+    handleError(error);
+    return false;
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function send() {
+  const input = $('input');
+  const text = input.value.trim();
+  if (!text || busy) return;
+  input.value = '';
+  resizeInput();
+  addMessage('user', text);
+  const sent = await run('chat', { message: text });
+  if (!sent) {
+    // Put the words back so nothing has to be dictated twice.
+    chat.messages.pop();
+    $('log').lastElementChild?.remove();
+    saveChat();
+    input.value = text;
+    resizeInput();
+  }
+}
+
+function resizeInput() {
+  const input = $('input');
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight + 2, 200) + 'px';
+}
+
+function showSetup(message = '') {
+  const connection = getConnection();
+  $('setup-url').value = connection?.url || '';
+  $('setup-token').value = '';
+  $('setup-status').textContent = message;
+  showView('setup-view');
+}
+
+async function connect(event) {
+  event.preventDefault();
+  const connection = { url: $('setup-url').value.trim(), token: $('setup-token').value.trim() };
+  const status = $('setup-status');
+  if (!isValidUrl(connection.url)) {
+    status.textContent = 'That doesn\'t look like the web app URL. It ends in /exec.';
+    return;
+  }
+  status.textContent = 'Connecting...';
+  try {
+    await post(connection, 'getSettings');
+    setConnection(connection);
+    showChat();
+  } catch (error) {
+    status.textContent = error.code === 'unauthorized' ? 'That token was rejected.' : error.message;
+  }
+}
+
+export function showChat() {
+  showView('chat-view');
+  render();
+}
+
+export function signOut() {
+  remove('connection');
+  remove(CHAT_KEY);
+  chat = newChat();
+  showSetup();
+}
+
+// The keyboard shrinks the visible area on iPhone, and the layout has to follow it.
+function trackViewport() {
+  const viewport = window.visualViewport;
+  if (!viewport) return;
+  const update = () => {
+    document.documentElement.style.setProperty('--app-height', viewport.height + 'px');
+    window.scrollTo(0, 0);
+    scrollToEnd();
+  };
+  viewport.addEventListener('resize', update);
+  update();
+}
+
+function start() {
+  chat = loadChat();
+  $('setup-form').addEventListener('submit', connect);
+  $('composer').addEventListener('submit', (event) => { event.preventDefault(); send(); });
+  $('input').addEventListener('input', resizeInput);
+  $('input').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      send();
+    }
+  });
+  $('confirm').addEventListener('click', () => run('confirm', { pendingId: chat.pending.id }));
+  $('cancel').addEventListener('click', () => run('cancel', { pendingId: chat.pending.id }));
+  $('open-settings').addEventListener('click', () => openSettings({ showView, showChat, signOut, handleError }));
+  $('notice-close').addEventListener('click', () => $('notice').close());
+
+  trackViewport();
+  if (getConnection()) showChat();
+  else showSetup();
+
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+start();

@@ -1,0 +1,15 @@
+# clasp: script ID and login details stay local
+.clasp.json
+.clasprc.json
+.deployment-id
+
+# Secrets, in case one ever lands here by mistake
+.env
+.env.*
+*.key
+*secret*
+*token*.txt
+
+# Node and macOS
+node_modules/
+.DS_Store

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'">
+<title>Calendar</title>
+<meta name="description" content="Personal calendar assistant">
+<meta name="theme-color" content="#F3EDE2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1C1814" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Calendar">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="preload" href="fonts/jost-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="style.css">
+<script type="module" src="app.js"></script>
+</head>
+<body>
+
+<main id="setup-view" class="view setup" hidden>
+  <div class="mark mark-large" aria-hidden="true"><i></i><i></i><i></i></div>
+  <h1>Calendar</h1>
+  <form id="setup-form">
+    <label>Web app URL
+      <input id="setup-url" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" required>
+    </label>
+    <label>Access token
+      <input id="setup-token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" required>
+    </label>
+    <p id="setup-status" class="status" role="status"></p>
+    <button class="primary" type="submit">Connect</button>
+  </form>
+</main>
+
+<div id="chat-view" class="view" hidden>
+  <header class="bar">
+    <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>Calendar</div>
+    <button id="open-settings" class="link" type="button">Settings</button>
+  </header>
+  <div id="scroller" class="scroller">
+    <div id="empty" class="empty">
+      <div class="mark mark-large" aria-hidden="true"><i></i><i></i><i></i></div>
+    </div>
+    <ol id="log" class="log" aria-live="polite"></ol>
+    <section id="proposal" class="proposal" hidden>
+      <p id="proposal-text" dir="auto"></p>
+      <div class="actions">
+        <button id="confirm" class="primary" type="button">Confirm</button>
+        <button id="cancel" class="outline" type="button">Cancel</button>
+      </div>
+    </section>
+  </div>
+  <form id="composer" class="composer">
+    <textarea id="input" rows="2" dir="auto" enterkeyhint="send" placeholder="Message" aria-label="Message"></textarea>
+    <button id="send" class="send" type="submit" aria-label="Send">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20V4M5 11l7-7 7 7" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+    </button>
+  </form>
+</div>
+
+<div id="settings-view" class="view" hidden>
+  <header class="bar">
+    <button id="close-settings" class="link" type="button">Back</button>
+    <div class="brand">Settings</div>
+    <span class="bar-spacer"></span>
+  </header>
+  <div id="settings-body" class="scroller settings"></div>
+</div>
+
+<dialog id="notice" class="notice">
+  <div class="mark" aria-hidden="true"><i></i><i></i><i></i></div>
+  <p id="notice-text" dir="auto"></p>
+  <button id="notice-close" class="primary" type="button">OK</button>
+</dialog>
+
+<dialog id="place-dialog" class="sheet">
+  <header class="bar">
+    <button id="place-close" class="link" type="button">Close</button>
+    <div class="brand" id="place-title">Place</div>
+    <span class="bar-spacer"></span>
+  </header>
+  <div id="place-body" class="scroller settings"></div>
+</dialog>
+
+</body>
+</html>
