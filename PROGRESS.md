@@ -1,5 +1,7 @@
 # Progress
 
+**Status: complete and in daily use.** The only open item is the owner's choice on 2-step verification.
+
 Full plan: see CLAUDE.md for decisions. Stop after each step so the owner can test.
 
 ## 1. Project setup
@@ -62,7 +64,7 @@ Full plan: see CLAUDE.md for decisions. Stop after each step so the owner can te
 - [x] Message box clears on send, including late mic results
 - [x] Clear chat button in the header, shown only when there is a chat
 - [x] Edit details before confirming (`docs/proposal.js`, `applyEdits_`). Only listed fields can change, and edits pass the same checks
-- [ ] Owner to confirm these three on the iPhone
+- [x] Owner confirmed these three on the iPhone
 
 ## Notes for the next session
 - GitHub username: nadavg22. App address will be nadavg22.github.io/calendar-assistant.
