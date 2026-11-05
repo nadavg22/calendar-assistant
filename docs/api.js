@@ -105,11 +105,11 @@ function springEasing() {
 const SPRING = springEasing();
 const EASE = CSS.supports('animation-timing-function', SPRING) ? SPRING : 'cubic-bezier(.22, 1, .36, 1)';
 const DURATION = 620;
-// Folding uses iOS's own curve, because a spring would overshoot past closed and squash the cards.
-const FOLD_EASE = 'cubic-bezier(.32, .72, 0, 1)';
-const FOLD_BASE_MS = 420;
-const FOLD_MS_PER_PIXEL = 0.2;
-const FOLD_MAX_MS = 680;
+// Folding starts gently and never overshoots, because a spring would squash the cards when closing.
+const FOLD_EASE = 'cubic-bezier(.4, 0, .2, 1)';
+const FOLD_BASE_MS = 440;
+const FOLD_MS_PER_PIXEL = 0.15;
+const FOLD_MAX_MS = 620;
 document.documentElement.style.setProperty('--ease', EASE);
 
 // Plays an animation and resolves when it ends. People who turned on Reduce Motion skip it.
@@ -118,8 +118,9 @@ export function animate(node, keyframes, duration = DURATION) {
   return node.animate(keyframes, { duration, easing: EASE }).finished.catch(() => {});
 }
 
-// Reveals or hides a large section. The contents are always built and laid out inside a closed
-// fold, so tapping only moves a mask and the items below, with nothing to build at that moment.
+// Reveals or hides a large section by changing the height of its fold, so the items below
+// follow in the same step and can't drift. The contents are built in advance and keep their
+// size, which makes that height change cheap.
 export async function foldSection(section, fold, body, opening) {
   if (section.dataset.moving) return;
   fold.inert = !opening;
@@ -130,26 +131,19 @@ export async function foldSection(section, fold, body, opening) {
   section.dataset.moving = 'true';
   const height = body.offsetHeight;
   if (opening) section.classList.add('open');
+  fold.style.overflow = 'hidden';
 
   const duration = Math.min(FOLD_MAX_MS, FOLD_BASE_MS + height * FOLD_MS_PER_PIXEL);
   const options = { duration, easing: FOLD_EASE, fill: 'both' };
   const order = (frames) => (opening ? frames : [...frames].reverse());
-  const below = [];
-  for (let node = section.nextElementSibling; node; node = node.nextElementSibling) below.push(node);
-
   const moves = [
-    section.animate(order([
-      { clipPath: `inset(0 0 ${height}px 0 round 22px)` },
-      { clipPath: 'inset(0 0 0 0 round 22px)' },
-    ]), options),
-    ...below.map((node) => node.animate(order([
-      { transform: `translateY(${-height}px)` },
-      { transform: 'none' },
-    ]), options)),
+    fold.animate(order([{ height: '0px' }, { height: height + 'px' }]), options),
+    body.animate(order([{ opacity: 0 }, { opacity: 1 }]), options),
   ];
   await Promise.all(moves.map((move) => move.finished.catch(() => {})));
   if (!opening) section.classList.remove('open');
   moves.forEach((move) => move.cancel());
+  fold.style.overflow = '';
   delete section.dataset.moving;
 }
 
