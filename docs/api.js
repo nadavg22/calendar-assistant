@@ -105,9 +105,11 @@ function springEasing() {
 const SPRING = springEasing();
 const EASE = CSS.supports('animation-timing-function', SPRING) ? SPRING : 'cubic-bezier(.22, 1, .36, 1)';
 const DURATION = 620;
-const FOLD_BASE_MS = 480;
-const FOLD_MS_PER_PIXEL = 0.45;
-const FOLD_MAX_MS = 1000;
+// Folding uses iOS's own curve, because a spring would overshoot past closed and squash the cards.
+const FOLD_EASE = 'cubic-bezier(.32, .72, 0, 1)';
+const FOLD_BASE_MS = 420;
+const FOLD_MS_PER_PIXEL = 0.2;
+const FOLD_MAX_MS = 680;
 document.documentElement.style.setProperty('--ease', EASE);
 
 // Plays an animation and resolves when it ends. People who turned on Reduce Motion skip it.
@@ -116,20 +118,21 @@ export function animate(node, keyframes, duration = DURATION) {
   return node.animate(keyframes, { duration, easing: EASE }).finished.catch(() => {});
 }
 
-// Reveals or hides a large section. It lays out once, then only a mask and the items below
-// it move, which costs the phone far less than resizing it on every frame.
-export async function foldSection(section, body, opening) {
+// Reveals or hides a large section. The contents are always built and laid out inside a closed
+// fold, so tapping only moves a mask and the items below, with nothing to build at that moment.
+export async function foldSection(section, fold, body, opening) {
   if (section.dataset.moving) return;
+  fold.inert = !opening;
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    section.open = opening;
+    section.classList.toggle('open', opening);
     return;
   }
   section.dataset.moving = 'true';
-  if (opening) section.open = true;
-
   const height = body.offsetHeight;
-  const duration = Math.min(FOLD_MAX_MS, Math.max(DURATION, FOLD_BASE_MS + height * FOLD_MS_PER_PIXEL));
-  const options = { duration, easing: EASE, fill: 'both' };
+  if (opening) section.classList.add('open');
+
+  const duration = Math.min(FOLD_MAX_MS, FOLD_BASE_MS + height * FOLD_MS_PER_PIXEL);
+  const options = { duration, easing: FOLD_EASE, fill: 'both' };
   const order = (frames) => (opening ? frames : [...frames].reverse());
   const below = [];
   for (let node = section.nextElementSibling; node; node = node.nextElementSibling) below.push(node);
@@ -139,14 +142,13 @@ export async function foldSection(section, body, opening) {
       { clipPath: `inset(0 0 ${height}px 0 round 22px)` },
       { clipPath: 'inset(0 0 0 0 round 22px)' },
     ]), options),
-    body.animate(order([{ opacity: 0 }, { opacity: 1 }]), options),
     ...below.map((node) => node.animate(order([
       { transform: `translateY(${-height}px)` },
       { transform: 'none' },
     ]), options)),
   ];
   await Promise.all(moves.map((move) => move.finished.catch(() => {})));
-  if (!opening) section.open = false;
+  if (!opening) section.classList.remove('open');
   moves.forEach((move) => move.cancel());
   delete section.dataset.moving;
 }

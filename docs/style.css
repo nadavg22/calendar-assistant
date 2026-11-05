@@ -35,6 +35,9 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 
+/* Settings stays laid out while hidden, so opening it has nothing to prepare. */
+#settings-view[hidden] { display: flex !important; visibility: hidden; }
+
 html { background: var(--background); }
 
 /* The page is locked in place, so iOS can't slide it up when the keyboard opens. */
@@ -89,7 +92,7 @@ svg { display: block; width: 22px; height: 22px; fill: none; stroke: currentColo
 /* Focus outlines are for keyboards only, so touch screens never show them. */
 :focus { outline: none; }
 @media (hover: hover) and (pointer: fine) {
-  button:focus-visible, summary:focus-visible { outline: 2px solid rgb(255 255 255 / .55); outline-offset: 2px; }
+  button:focus-visible { outline: 2px solid rgb(255 255 255 / .55); outline-offset: 2px; }
 }
 
 .glass {
@@ -320,20 +323,26 @@ input:focus, select:focus, .section-body textarea:focus { border-color: rgb(255 
 
 /* Settings */
 .settings { display: grid; align-content: start; gap: 10px; padding: 4px var(--gutter) calc(24px + env(safe-area-inset-bottom) + var(--keyboard)); }
-.section summary {
+.section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
   min-height: 58px;
   padding: 0 18px;
+  border: 0;
+  background: none;
   font-size: 16px;
   font-weight: 600;
-  list-style: none;
+  text-align: start;
   cursor: pointer;
 }
-.section summary::-webkit-details-marker { display: none; }
-.section summary::after { content: "+"; color: var(--muted); font-size: 22px; font-weight: 300; }
-.section[open] summary::after { content: "–"; }
+.section-header::after { content: "+"; color: var(--muted); font-size: 22px; font-weight: 300; transition: transform .36s var(--ease); }
+.section.open .section-header::after { content: "–"; transform: rotate(180deg); }
+
+/* Closed contents stay built and laid out, so opening has nothing to prepare. */
+.fold { height: 0; overflow: hidden; }
+.section.open .fold { height: auto; overflow: visible; }
 .section-body { display: grid; gap: 16px; padding: 2px 18px 20px; contain: layout style; }
 
 fieldset { display: grid; gap: 14px; min-width: 0; margin: 0; padding: 0 0 18px; border: 0; border-bottom: 1px solid var(--edge); }
@@ -401,8 +410,6 @@ dialog::backdrop { background: rgb(0 0 0 / .55); }
 
 .primary, .outline, .send, .icon, .date, .place, .link, .language { transition: transform .28s var(--ease), background-color .28s var(--ease); }
 .primary:active, .outline:active, .send:active, .icon:active, .date:active, .language:active { transform: scale(.96); transition-duration: .1s; }
-.section summary::after { transition: transform .36s var(--ease); }
-.section[open] summary::after { transform: rotate(180deg); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }

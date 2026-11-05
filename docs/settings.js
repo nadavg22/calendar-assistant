@@ -33,15 +33,15 @@ function toggle(labelText, checked) {
 
 function section(title, ...content) {
   const body = el('div', { class: 'section-body' }, ...content);
-  const details = el('details', { class: 'section glass' });
-  const summary = el('summary', {
-    onclick: (event) => {
-      event.preventDefault();
-      foldSection(details, body, !details.open);
-    },
+  const fold = el('div', { class: 'fold', inert: true }, body);
+  const card = el('section', { class: 'section glass' });
+  const header = el('button', {
+    class: 'section-header',
+    type: 'button',
+    onclick: () => foldSection(card, fold, body, !card.classList.contains('open')),
   }, title);
-  details.append(summary, body);
-  return details;
+  card.append(header, fold);
+  return card;
 }
 
 // A save button with a status line that handles the wait and any error.
@@ -56,7 +56,9 @@ function saveRow(onSave, label = 'Save') {
       try {
         await onSave();
         status.textContent = 'Saved';
-        fetchSettings();
+        fetchSettings().then((latest) => {
+          if (latest) settings = latest;
+        });
       } catch (error) {
         status.textContent = '';
         nav.handleError(error);
@@ -340,7 +342,14 @@ function securitySection() {
     }, 'Disconnect this phone'));
 }
 
-function renderSettings() {
+let renderedData = null;
+
+// Rebuilds the screen only if the data changed, so opening Settings normally builds nothing.
+function renderSettings(data) {
+  const json = JSON.stringify(data);
+  if (json === renderedData) return;
+  settings = data;
+  renderedData = json;
   $('settings-body').replaceChildren(placesSection(), calendarsSection(), colorsSection(), notificationsSection(), preferencesSection(), securitySection());
 }
 
@@ -352,30 +361,30 @@ export async function fetchSettings() {
   return latest;
 }
 
-function isInUse() {
-  return Boolean($('settings-body').querySelector('details[open]')) || $('place-dialog').open;
-}
-
-export async function openSettings(navigation) {
+// Builds the Settings screen in the background while the chat is showing.
+export async function prepareSettings(navigation) {
   nav = navigation;
   $('close-settings').onclick = () => nav.showChat();
   $('place-close').onclick = () => $('place-dialog').close();
-
   const saved = load(SETTINGS_KEY);
-  if (saved) {
-    settings = saved;
-    renderSettings();
-  } else {
-    $('settings-body').replaceChildren(el('p', { class: 'status pad' }, 'Loading...'));
-  }
+  if (saved) renderSettings(saved);
+  const latest = await fetchSettings();
+  if (latest && !isInUse()) renderSettings(latest);
+}
+
+function isInUse() {
+  return Boolean($('settings-body').querySelector('.section.open')) || $('place-dialog').open;
+}
+
+export async function openSettings() {
+  if (!settings) $('settings-body').replaceChildren(el('p', { class: 'status pad' }, 'Loading...'));
   nav.showView('settings-view');
 
   // A fresh copy loads behind the scenes, and never replaces a section you have open.
   const latest = await fetchSettings();
-  if (latest && !$('settings-view').hidden && !isInUse() && JSON.stringify(latest) !== JSON.stringify(saved)) {
-    settings = latest;
-    renderSettings();
-  } else if (!latest && !saved) {
+  if (latest && !isInUse()) {
+    renderSettings(latest);
+  } else if (!latest && !settings) {
     nav.showChat();
     nav.handleError(new Error('Can\'t reach the assistant. Check your connection and try again.'));
   }

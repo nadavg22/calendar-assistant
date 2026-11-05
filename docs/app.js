@@ -2,7 +2,7 @@
 import {
   animate, call, getConnection, isHebrew, isValidUrl, load, post, remove, save, setConnection, showNotice,
 } from './api.js';
-import { fetchSettings, openSettings } from './settings.js';
+import { openSettings, prepareSettings } from './settings.js';
 import { setupVoice } from './voice.js';
 import { setupWeek } from './week.js';
 
@@ -182,7 +182,7 @@ async function connect(event) {
     await post(connection, 'getSettings');
     setConnection(connection);
     showChat();
-    fetchSettings();
+    prepareSettings(navigation);
   } catch (error) {
     status.textContent = error.code === 'unauthorized' ? 'That token was rejected.' : error.message;
   }
@@ -256,6 +256,8 @@ function setupFieldFocus() {
   }, { passive: false });
 }
 
+const navigation = { showView, showChat, signOut, handleError };
+
 function start() {
   chat = loadChat();
   $('setup-form').addEventListener('submit', connect);
@@ -265,7 +267,7 @@ function start() {
   $('scroller').addEventListener('click', () => $('input').blur());
   $('confirm').addEventListener('click', () => run('confirm', { pendingId: chat.pending.id }));
   $('cancel').addEventListener('click', () => run('cancel', { pendingId: chat.pending.id }));
-  $('open-settings').addEventListener('click', () => openSettings({ showView, showChat, signOut, handleError }));
+  $('open-settings').addEventListener('click', () => openSettings());
   $('notice-close').addEventListener('click', () => $('notice').close());
 
   week = setupWeek(scrollToEnd);
@@ -277,7 +279,7 @@ function start() {
   trackViewport();
   if (getConnection()) {
     showChat();
-    fetchSettings();
+    prepareSettings(navigation);
   } else {
     showSetup();
   }
