@@ -1,4 +1,5 @@
 // Connection screen and chat screen.
+import { openProposalEditor } from './proposal.js';
 import {
   animate, call, getConnection, isHebrew, isValidUrl, load, post, remove, save, setConnection, showNotice,
 } from './api.js';
@@ -20,6 +21,7 @@ const views = ['setup-view', 'chat-view', 'settings-view'];
 let chat = null;
 let busy = false;
 let week = null;
+let voice = null;
 
 export function showView(id) {
   const previous = views.find((view) => !$(view).hidden);
@@ -62,11 +64,18 @@ function messageNode(message) {
   return item;
 }
 
+function showClearButton() {
+  $('clear-chat').hidden = chat.messages.length === 0 && !chat.pending;
+}
+
 function renderPending() {
   const pending = chat.pending;
   $('proposal').hidden = !pending;
+  showClearButton();
   if (!pending) return;
   const hebrew = isHebrew(pending.summary);
+  $('edit-proposal').hidden = !pending.items?.some((item) => item.type !== 'save_place');
+  $('edit-proposal').textContent = hebrew ? 'עריכת פרטים' : 'Edit details';
   $('proposal-text').textContent = pending.summary;
   $('confirm').textContent = hebrew ? 'אישור' : 'Confirm';
   $('cancel').textContent = hebrew ? 'ביטול' : 'Cancel';
@@ -86,6 +95,7 @@ function addMessage(role, text) {
   $('log').append(node);
   $('empty').hidden = true;
   saveChat();
+  showClearButton();
   scrollToEnd();
 }
 
@@ -136,13 +146,29 @@ async function run(action, data) {
   }
 }
 
+function clearInput() {
+  $('input').value = '';
+  resizeInput();
+}
+
+async function clearChat() {
+  if (busy) return;
+  await animate($('scroller'), [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-12px)' }], 260);
+  chat = newChat();
+  saveChat();
+  render();
+  animate($('empty'), [{ opacity: 0 }, { opacity: 1 }]);
+}
+
 async function send() {
   const input = $('input');
   const text = input.value.trim();
   if (!text || busy) return;
-  input.value = '';
+  voice.stop();
   input.blur();
-  resizeInput();
+  clearInput();
+  // iOS can hand back unfinished dictation or autocorrect a moment after the box loses focus.
+  setTimeout(() => { if (input.value.trim() === text) clearInput(); }, 120);
   addMessage('user', text);
   const sent = await run('chat', { message: text });
   if (!sent) {
@@ -266,13 +292,17 @@ function start() {
   // Tapping the faded chat closes the keyboard.
   $('scroller').addEventListener('click', () => $('input').blur());
   $('confirm').addEventListener('click', () => run('confirm', { pendingId: chat.pending.id }));
+  $('edit-proposal').addEventListener('click', () => {
+    openProposalEditor(chat.pending, (edits) => run('confirm', { pendingId: chat.pending.id, edits }));
+  });
+  $('clear-chat').addEventListener('click', clearChat);
   $('cancel').addEventListener('click', () => run('cancel', { pendingId: chat.pending.id }));
   $('open-settings').addEventListener('click', () => openSettings());
   $('notice-close').addEventListener('click', () => $('notice').close());
 
   week = setupWeek(scrollToEnd);
   setupFieldFocus();
-  setupVoice(resizeInput);
+  voice = setupVoice(resizeInput);
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && !$('chat-view').hidden) week.refresh();
   });

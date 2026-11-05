@@ -234,6 +234,15 @@ function checkGuests_(guests) {
   });
 }
 
+function validateChanges_(changes) {
+  if (!changes) throw new Error('An update needs changes.');
+  checkGuests_(changes.add_guests);
+  if (changes.calendar !== undefined) requireWritable_(resolveCalendar_(changes.calendar));
+  if (changes.start !== undefined && changes.end !== undefined && parseToMs_(changes.end) <= parseToMs_(changes.start)) {
+    throw new Error('The end must be after the start.');
+  }
+}
+
 function validateAction_(action) {
   if (action.type === 'create') {
     const event = action.event || {};
@@ -243,8 +252,7 @@ function validateAction_(action) {
     if (parseToMs_(event.end) <= parseToMs_(event.start)) throw new Error('The end must be after the start.');
   } else if (action.type === 'update' || action.type === 'delete') {
     requireWritable_(splitEventId_(action.event_id).calendar);
-    if (action.type === 'update' && !action.changes) throw new Error('An update needs changes.');
-    if (action.type === 'update') checkGuests_(action.changes.add_guests);
+    if (action.type === 'update') validateChanges_(action.changes);
   } else {
     throw new Error('Unknown action type: ' + action.type);
   }

@@ -85,9 +85,32 @@ function fallbackReply_(stopped, text) {
   return hebrew ? 'זה לקח יותר מדי זמן. נסה שוב בניסוח קצר יותר.' : 'That took too long. Please try again with a shorter request.';
 }
 
+function actionTitle_(action, session) {
+  if (action.type === 'create') return action.event.title;
+  if (action.type === 'save_place') return action.fields.name;
+  const known = session.recentEvents.filter(function (e) { return e.id === action.event_id; })[0];
+  return known ? known.title : '';
+}
+
+// What the app needs to show a proposal and let the owner adjust it.
 function pendingForApp_(session) {
   const pending = session.pending;
-  return pending ? { id: pending.id, summary: pending.summary } : null;
+  if (!pending) return null;
+  return {
+    id: pending.id,
+    summary: pending.summary,
+    calendars: getConfig().calendars
+      .filter(function (c) { return c.writable; })
+      .map(function (c) { return c.label; }),
+    items: pending.actions.map(function (action) {
+      return {
+        type: action.type,
+        title: actionTitle_(action, session),
+        event: action.event || null,
+        changes: action.changes || null,
+      };
+    }),
+  };
 }
 
 // Returns { reply, pending, tier, rounds, usage }.
@@ -137,16 +160,45 @@ function executeAction_(action, session) {
   }
 }
 
+const EDITABLE_EVENT_FIELDS = ['title', 'calendar', 'start', 'end', 'location', 'guests'];
+const EDITABLE_CHANGE_FIELDS = ['title', 'calendar', 'start', 'end', 'location', 'add_guests'];
+
+function copyFields_(target, source, fields) {
+  fields.forEach(function (field) {
+    if (source && source[field] !== undefined) target[field] = source[field];
+  });
+}
+
+// Applies the owner's edits. Only the listed details can change, never an action's type or
+// which event it touches, and the result passes the same checks as a proposal from Claude.
+function applyEdits_(actions, edits) {
+  if (!edits) return actions;
+  const edited = [];
+  actions.forEach(function (action, index) {
+    const edit = edits[index] || {};
+    if (edit.skip) return;
+    const copy = JSON.parse(JSON.stringify(action));
+    if (copy.type === 'create') copyFields_(copy.event, edit.event, EDITABLE_EVENT_FIELDS);
+    if (copy.type === 'update') copyFields_(copy.changes, edit.changes, EDITABLE_CHANGE_FIELDS);
+    if (copy.type !== 'save_place') validateAction_(copy);
+    edited.push(copy);
+  });
+  if (edited.length === 0) throw new Error('Nothing is left to confirm.');
+  return edited;
+}
+
 // Runs a stored proposal directly, with no AI call. userText is what goes in the conversation.
-function confirmPending(sessionId, pendingId, userText) {
+function confirmPending(sessionId, pendingId, userText, edits) {
   const session = loadSession_(sessionId);
   const pending = session.pending;
   if (!pending || pending.id !== pendingId) {
     return { reply: isHebrew_(userText) ? 'אין מה לאשר.' : 'There is nothing to confirm.', pending: pendingForApp_(session) };
   }
 
+  // A bad edit stops here, so the proposal stays waiting and nothing has changed.
+  const actions = applyEdits_(pending.actions, edits);
   const failures = [];
-  pending.actions.forEach(function (action) {
+  actions.forEach(function (action) {
     try {
       executeAction_(action, session);
     } catch (error) {
@@ -154,10 +206,11 @@ function confirmPending(sessionId, pendingId, userText) {
     }
   });
 
-  const total = pending.actions.length;
+  const total = actions.length;
   const done = total - failures.length;
+  const editedReply = isHebrew_(pending.summary) ? 'בוצע, עם השינויים שלך.' : 'Done, with your changes.';
   const reply = failures.length === 0
-    ? pending.doneMessage
+    ? (edits ? editedReply : pending.doneMessage)
     : done + '/' + total + ' ✓ | ' + failures.join(' | ');
   session.pending = null;
   addTurn_(session, userText || 'Confirmed.', reply);

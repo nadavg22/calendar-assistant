@@ -227,6 +227,17 @@ svg { display: block; width: 22px; height: 22px; fill: none; stroke: currentColo
 @keyframes pulse { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
 
 .proposal { margin: 6px var(--gutter) 14px; padding: 16px; }
+.edit-link {
+  display: block;
+  margin-top: 10px;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--orange);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
 .proposal p { white-space: pre-wrap; overflow-wrap: anywhere; text-align: start; }
 .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
 
@@ -315,6 +326,27 @@ input:focus, select:focus, .section-body textarea:focus { border-color: rgb(255 
 .status { color: var(--muted); font-size: 14px; }
 .status:empty { display: none; }
 .pad { padding: 20px var(--gutter); }
+
+/* Editing a proposal */
+.edit-item { display: grid; gap: 14px; padding: 16px 18px 18px; }
+.edit-item.removed > :not(.edit-item-top) { display: none; }
+.edit-item.removed .edit-item-title { color: var(--muted); text-decoration: line-through; }
+.edit-item-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.edit-item-title { min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.edit-item-top .link { flex: none; min-height: 32px; margin: 0; }
+.times { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+input[type=date] {
+  width: 100%;
+  min-height: 46px;
+  padding: 8px 14px;
+  border: 1px solid var(--edge);
+  border-radius: 13px;
+  background: rgb(255 255 255 / .05);
+  color: var(--ink);
+  font-size: 16px;
+  -webkit-appearance: none;
+  appearance: none;
+}
 
 /* Connection screen */
 .setup { justify-content: center; padding-inline: var(--gutter); }

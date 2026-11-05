@@ -53,19 +53,16 @@ Full plan: see CLAUDE.md for decisions. Stop after each step so the owner can te
 - [x] Keyboard: layout never resizes, chat fades behind it, only the message box rises (`--keyboard`, `.keyboard-open`). Blur limited to `.week` and `.composer` for smooth animation on iPhone
 
 ## 6. Final checklist
-- [ ] Guests: invite a test address and confirm the email arrives
-- [ ] Hebrew input
-- [ ] Relative dates
-- [ ] "3 workouts this week"
-- [ ] Calendar routing
-- [ ] Colors and reminders applied
-- [ ] Follow-up correction
-- [ ] Confirmation flow
-- [ ] Wrong token rejected
-- [ ] Owner: 2-step verification confirmed on all three Google accounts
+- [x] All 9 owner tests passed on the iPhone, including Hebrew, the workout scheduling, guests and web answers
+- [x] Wrong token rejected (tested against the live backend)
+- [x] Speed accepted by the owner
+- [ ] Owner's decision: 2-step verification on the three Google accounts. Not required for the app, strongly recommended on the main account
+
+## 7. After the checklist
+- [x] Message box clears on send, including late mic results
+- [x] Clear chat button in the header, shown only when there is a chat
+- [x] Edit details before confirming (`docs/proposal.js`, `applyEdits_`). Only listed fields can change, and edits pass the same checks
+- [ ] Owner to confirm these three on the iPhone
 
 ## Notes for the next session
 - GitHub username: nadavg22. App address will be nadavg22.github.io/calendar-assistant.
-- Gym is a sample row; replace it with Auto-fill from web once the app exists.
-- Color rules are samples; the owner picks real ones in Settings.
-- Owner wants a dismissable popup in the app when the AI stops: separate clear messages (Hebrew or English) for daily cap reached, Anthropic monthly spend limit reached, and credit exhausted. Backend must detect these in step 4, PWA shows them in step 5. Settings and Confirm keep working.

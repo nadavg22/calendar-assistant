@@ -93,4 +93,13 @@ export function setupVoice(onTextChange) {
     showLanguage();
   });
   showLanguage();
+
+  // Sending ends listening at once, so a late result can't write the words back into the box.
+  return {
+    stop() {
+      if (!recognition) return;
+      recognition.onresult = null;
+      recognition.abort();
+    },
+  };
 }

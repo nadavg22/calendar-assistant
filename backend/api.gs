@@ -65,7 +65,7 @@ function doPost(e) {
 function routeAction_(body) {
   switch (body.action) {
     case 'chat': return actionChat_(body);
-    case 'confirm': return confirmPending(requireSession_(body), body.pendingId);
+    case 'confirm': return confirmPending(requireSession_(body), body.pendingId, undefined, body.edits);
     case 'cancel': return cancelPending(requireSession_(body), body.pendingId);
     case 'getWeek': return getWeek_(body.offset);
     case 'getSettings': return getSettings_();

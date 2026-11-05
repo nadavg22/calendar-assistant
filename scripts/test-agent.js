@@ -24,14 +24,14 @@ Object.assign(globalThis, {
       return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ usage: {}, ...next }) };
     },
   },
-  getConfig: () => ({ calendars: [{ label: 'Personal' }, { label: 'Studio' }], places: [{ name: 'Holmes', isStale: true }], colorRules: [], preferences: { dailyRequestCap: cap } }),
+  getConfig: () => ({ calendars: [{ label: 'Personal', writable: true }, { label: 'Studio', writable: true }, { label: 'Read only', writable: false }], places: [{ name: 'Holmes', isStale: true }], colorRules: [], preferences: { dailyRequestCap: cap } }),
   getCurrentDatetime: () => ({ day: 'Thursday', date: '2026-11-05', time: '13:00', timezone: 'Asia/Jerusalem' }),
   appendLog_: () => {},
   resolveCalendar_: (label) => ({ label }),
   requireWritable_: () => {},
   parseToMs_: (value) => new Date(value).getTime(),
   splitEventId_: (id) => ({ calendar: { label: id.split(':')[0] } }),
-  createEvent: (args) => { calls.push(['create', args.title]); return { id: args.calendar + ':new', calendar: args.calendar, title: args.title, start: args.start, end: args.end }; },
+  createEvent: (args) => { calls.push(['create', args.title, args.start]); return { id: args.calendar + ':new', calendar: args.calendar, title: args.title, start: args.start, end: args.end }; },
   updateEvent: (id) => { calls.push(['update', id]); return { id, calendar: 'Personal', title: 'x', start: 's', end: 'e' }; },
   deleteEvent: (id) => { calls.push(['delete', id]); return {}; },
   listEvents: () => [],
@@ -83,7 +83,7 @@ const tests = {
   'creates at once when the owner named the calendar'() {
     scripted = [toolUse('create_event', { ...event, calendar_stated_by_user: true }), say('Added.')];
     const result = handleChat('s', 'Add gym to Personal');
-    assert.deepStrictEqual(calls, [['create', 'Gym']]);
+    assert.deepStrictEqual(calls.map((c) => c[1]), ['Gym']);
     assert.strictEqual(result.pending, null);
   },
   'refuses to create when Claude chose the calendar'() {
@@ -99,7 +99,7 @@ const tests = {
       say('One done.'),
     ];
     handleChat('s', 'Add two');
-    assert.deepStrictEqual(calls, [['create', 'Gym']]);
+    assert.deepStrictEqual(calls.map((c) => c[1]), ['Gym']);
   },
   'refuses to delete directly'() {
     scripted = [toolUse('delete_event', { event_id: 'Personal:1' }), say('Confirm?')];
@@ -249,6 +249,46 @@ const tests = {
     const current = [{ email: 'a@b.co', responseStatus: 'accepted' }, { email: 'x@y.co' }];
     const updated = updatedAttendees_(current, ['A@B.co', 'new@c.co'], ['x@y.co']);
     assert.deepStrictEqual(updated, [{ email: 'a@b.co', responseStatus: 'accepted' }, { email: 'new@c.co' }]);
+  },
+  'the app gets what it needs to edit a proposal, with writable calendars only'() {
+    scripted = [toolUse('propose_actions', { summary: 'S', done_message: 'D', actions: [{ type: 'create', event }, { type: 'delete', event_id: 'Personal:1' }] }), say('Sure?')];
+    const { pending } = handleChat('s', 'Do it');
+    assert.deepStrictEqual(pending.calendars, ['Personal', 'Studio']);
+    assert.strictEqual(pending.items[0].event.title, 'Gym');
+    assert.strictEqual(pending.items[1].type, 'delete');
+  },
+  'edits change the details before anything runs'() {
+    scripted = [toolUse('propose_actions', { summary: 'S', done_message: 'Booked 2.', actions: [{ type: 'create', event }, { type: 'create', event: { ...event, title: 'Gym 2' } }] }), say('Sure?')];
+    const { pending } = handleChat('s', 'Two workouts');
+    const result = confirmPending('s', pending.id, undefined, [{ event: { title: 'Yoga', start: '2026-11-08T17:00:00', end: '2026-11-08T18:00:00' } }, { skip: true }]);
+    assert.deepStrictEqual(calls, [['create', 'Yoga', '2026-11-08T17:00:00']]);
+    assert.strictEqual(result.reply, 'Done, with your changes.');
+  },
+  'edits can never change what an action does or which event it touches'() {
+    scripted = [toolUse('propose_actions', { summary: 'S', done_message: 'D', actions: [{ type: 'update', event_id: 'Personal:1', changes: { start: '2026-11-08T18:00:00' } }] }), say('Sure?')];
+    const { pending } = handleChat('s', 'Move it');
+    confirmPending('s', pending.id, undefined, [{ type: 'delete', event_id: 'Personal:999', changes: { start: '2026-11-08T19:00:00', reminders: [] } }]);
+    assert.deepStrictEqual(calls, [['update', 'Personal:1']]);
+  },
+  'a bad edit changes nothing and leaves the proposal waiting'() {
+    scripted = [toolUse('propose_actions', { summary: 'S', done_message: 'D', actions: [{ type: 'create', event }] }), say('Sure?')];
+    const { pending } = handleChat('s', 'Book');
+    const bad = post({ token: 'right-token', action: 'confirm', session: 's', pendingId: pending.id, edits: [{ event: { end: '2026-11-08T10:00:00' } }] });
+    assert.strictEqual(bad.error, 'server_error');
+    assert.ok(bad.message.includes('after the start'));
+    assert.deepStrictEqual(calls, []);
+    assert.strictEqual(post({ token: 'right-token', action: 'confirm', session: 's', pendingId: pending.id }).reply, 'D');
+  },
+  'a bad guest address in an edit is refused'() {
+    scripted = [toolUse('propose_actions', { summary: 'S', done_message: 'D', actions: [{ type: 'create', event }] }), say('Sure?')];
+    const { pending } = handleChat('s', 'Book');
+    assert.throws(() => confirmPending('s', pending.id, undefined, [{ event: { guests: ['not-an-email'] } }]), /valid email/);
+    assert.deepStrictEqual(calls, []);
+  },
+  'removing every item leaves nothing to confirm'() {
+    scripted = [toolUse('propose_actions', { summary: 'S', done_message: 'D', actions: [{ type: 'create', event }] }), say('Sure?')];
+    const { pending } = handleChat('s', 'Book');
+    assert.throws(() => confirmPending('s', pending.id, undefined, [{ skip: true }]), /Nothing is left/);
   },
   'a wrong token is rejected and does nothing'() {
     assert.deepStrictEqual(post({ token: 'wrong', action: 'chat', session: 's', message: 'Hi' }), { ok: false, error: 'unauthorized' });
