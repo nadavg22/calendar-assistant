@@ -1,8 +1,11 @@
 // The week strip above the chat. It reads straight from the calendars, with no AI.
-import { call, el, getConnection, load, save } from './api.js';
+import { animate, call, el, getConnection, load, save, slideClosed, slideOpen } from './api.js';
 
 const WEEK_KEY = 'week';
 const MAX_MARKS = 4;
+const SWIPE_DISTANCE = 45;
+const DRAG_FACTOR = 0.45;
+const SLIDE_DISTANCE = 48;
 const EVENT_COLORS = {
   1: '#7986CB', 2: '#33B679', 3: '#8E24AA', 4: '#E67C73', 5: '#F6BF26', 6: '#F4511E',
   7: '#039BE5', 8: '#616161', 9: '#3F51B5', 10: '#0B8043', 11: '#D50000',
@@ -35,18 +38,29 @@ export function setupWeek(onHeightChange) {
   let selected = null;
   let data = load(WEEK_KEY);
   let latestRequest = 0;
+  let slideFrom = 0;
   // Weeks already seen, so the arrows answer at once while a fresh copy loads.
   const weeks = { 0: data };
 
-  function renderDay() {
+  async function renderDay() {
     const panel = $('day');
-    panel.hidden = !selected || !data;
-    if (panel.hidden) return;
+    const wasOpen = !panel.hidden;
+    if (!selected || !data) {
+      if (wasOpen) {
+        await slideClosed(panel);
+        if (!selected) panel.hidden = true;
+        onHeightChange();
+      }
+      return;
+    }
     const events = eventsOn(data, selected);
     panel.replaceChildren(
       el('p', { class: 'day-title' }, format(selected, { weekday: 'long', day: 'numeric', month: 'long' })),
       events.length ? el('ul', {}, ...events.map(eventLine)) : el('p', { class: 'day-empty' }, 'Nothing planned'),
     );
+    panel.hidden = false;
+    if (!wasOpen) await slideOpen(panel);
+    onHeightChange();
   }
 
   function dayButton(day) {
@@ -78,6 +92,10 @@ export function setupWeek(onHeightChange) {
     $('week').replaceChildren(...data.days.map(dayButton));
     renderDay();
     onHeightChange();
+    if (slideFrom) {
+      animate($('week'), [{ transform: `translateX(${slideFrom}px)`, opacity: 0 }, { transform: 'none', opacity: 1 }]);
+      slideFrom = 0;
+    }
   }
 
   async function refresh() {
@@ -110,6 +128,7 @@ export function setupWeek(onHeightChange) {
   function move(step) {
     offset += step;
     selected = null;
+    slideFrom = step * SLIDE_DISTANCE;
     if (weeks[offset]) {
       data = weeks[offset];
       render();
@@ -117,6 +136,34 @@ export function setupWeek(onHeightChange) {
     refresh();
   }
 
+  // The strip follows the finger, then either moves on a week or settles back.
+  function setupSwipe() {
+    const strip = $('week');
+    let start = null;
+    let distance = 0;
+    strip.addEventListener('touchstart', (event) => {
+      start = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+      distance = 0;
+    }, { passive: true });
+    strip.addEventListener('touchmove', (event) => {
+      if (!start) return;
+      const x = event.touches[0].clientX - start.x;
+      const y = event.touches[0].clientY - start.y;
+      if (Math.abs(x) > Math.abs(y)) {
+        distance = x;
+        strip.style.transform = `translateX(${x * DRAG_FACTOR}px)`;
+      }
+    }, { passive: true });
+    strip.addEventListener('touchend', () => {
+      const dragged = strip.style.transform;
+      strip.style.transform = '';
+      start = null;
+      if (Math.abs(distance) >= SWIPE_DISTANCE) move(distance < 0 ? 1 : -1);
+      else if (dragged) animate(strip, [{ transform: dragged }, { transform: 'none' }]);
+    });
+  }
+
+  setupSwipe();
   $('week-prev').addEventListener('click', () => move(-1));
   $('week-next').addEventListener('click', () => move(1));
   render();

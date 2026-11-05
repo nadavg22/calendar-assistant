@@ -1,6 +1,6 @@
 // Connection screen and chat screen.
 import {
-  call, getConnection, isHebrew, isValidUrl, load, post, remove, save, setConnection, showNotice,
+  animate, call, getConnection, isHebrew, isValidUrl, load, post, remove, save, setConnection, showNotice,
 } from './api.js';
 import { openSettings } from './settings.js';
 import { setupVoice } from './voice.js';
@@ -18,7 +18,12 @@ let busy = false;
 let week = null;
 
 export function showView(id) {
+  const previous = views.find((view) => !$(view).hidden);
   views.forEach((view) => { $(view).hidden = view !== id; });
+  if (previous && previous !== id) {
+    const from = id === 'settings-view' ? 40 : -40;
+    animate($(id), [{ transform: `translateX(${from}px)`, opacity: 0 }, { transform: 'none', opacity: 1 }]);
+  }
 }
 
 function newChat() {
@@ -72,7 +77,9 @@ function render() {
 
 function addMessage(role, text) {
   chat.messages.push({ role, text });
-  $('log').append(messageNode({ role, text }));
+  const node = messageNode({ role, text });
+  node.classList.add('enter');
+  $('log').append(node);
   $('empty').hidden = true;
   saveChat();
   scrollToEnd();
@@ -188,18 +195,28 @@ export function signOut() {
   showSetup();
 }
 
-// The keyboard shrinks the visible area on iPhone, and the layout has to follow it.
+// iOS shows the keyboard by shrinking the visible area and sliding it down the page.
+// The app follows that area, so the header and background stay where they were.
 function trackViewport() {
   const viewport = window.visualViewport;
   if (!viewport) return;
+  const root = document.documentElement;
   const update = () => {
-    document.documentElement.style.setProperty('--app-height', viewport.height + 'px');
-    window.scrollTo(0, 0);
+    root.style.setProperty('--app-height', viewport.height + 'px');
+    root.style.setProperty('--viewport-top', viewport.offsetTop + 'px');
     scrollToEnd();
   };
   viewport.addEventListener('resize', update);
-  viewport.addEventListener('scroll', () => window.scrollTo(0, 0));
+  viewport.addEventListener('scroll', update);
   update();
+}
+
+// Focusing without a scroll stops iOS sliding the page to reach the box.
+function focusWithoutScrolling(event) {
+  const input = $('input');
+  if (document.activeElement === input) return;
+  event.preventDefault();
+  input.focus({ preventScroll: true });
 }
 
 function start() {
@@ -207,6 +224,7 @@ function start() {
   $('setup-form').addEventListener('submit', connect);
   $('composer').addEventListener('submit', (event) => { event.preventDefault(); send(); });
   $('input').addEventListener('input', resizeInput);
+  $('input').addEventListener('touchend', focusWithoutScrolling);
   $('input').addEventListener('keydown', (event) => {
     if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
       event.preventDefault();

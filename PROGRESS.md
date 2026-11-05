@@ -43,8 +43,9 @@ Full plan: see CLAUDE.md for decisions. Stop after each step so the owner can te
 - [x] Week strip with day view
 - [x] Guests (emails typed by the owner, always confirmed)
 - [x] In-app mic works in English on the iPhone
-- [ ] Hebrew mic: owner's must-have, not working yet. `voice.js` now tries he-IL, he, iw-IL and reports the reason. If it still fails, the fallback is recording audio and transcribing on the server, which needs another provider's key
-- [ ] Background stays still when the keyboard opens
+- [x] Hebrew mic works on the iPhone (`voice.js` tries he-IL, he, iw-IL)
+- [x] Animations: sections, week swipe, screen changes, messages, button press
+- [ ] Screen stays still when the keyboard opens (app follows `visualViewport.offsetTop`)
 
 ## 6. Final checklist
 - [ ] Guests: invite a test address and confirm the email arrives

@@ -86,3 +86,34 @@ export function showNotice(text) {
   const dialog = document.getElementById('notice');
   if (!dialog.open) dialog.showModal();
 }
+
+const EASE = 'cubic-bezier(.2, .8, .2, 1)';
+const DURATION = 240;
+
+// Plays an animation and resolves when it ends. People who turned on Reduce Motion skip it.
+export function animate(node, keyframes, duration = DURATION) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return Promise.resolve();
+  return node.animate(keyframes, { duration, easing: EASE }).finished.catch(() => {});
+}
+
+function openShape(node) {
+  const style = getComputedStyle(node);
+  return {
+    height: node.offsetHeight + 'px',
+    paddingTop: style.paddingTop,
+    paddingBottom: style.paddingBottom,
+    marginTop: style.marginTop,
+    opacity: 1,
+  };
+}
+
+const CLOSED_SHAPE = { height: '0px', paddingTop: '0px', paddingBottom: '0px', marginTop: '0px', opacity: 0 };
+
+async function slide(node, keyframes) {
+  node.style.overflow = 'hidden';
+  await animate(node, keyframes);
+  node.style.overflow = '';
+}
+
+export const slideOpen = (node) => slide(node, [CLOSED_SHAPE, openShape(node)]);
+export const slideClosed = (node) => slide(node, [openShape(node), CLOSED_SHAPE]);
