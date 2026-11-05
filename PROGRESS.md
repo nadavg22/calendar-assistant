@@ -42,7 +42,9 @@ Full plan: see CLAUDE.md for decisions. Stop after each step so the owner can te
 - [x] Speed: no AI classifier call, one Sheet open per request, config cached an hour, fewer tool rounds, weeks cached and prefetched. Log tab now records seconds per request
 - [x] Week strip with day view
 - [x] Guests (emails typed by the owner, always confirmed)
-- [ ] In-app mic button tested on the iPhone, and keyboard mic fixed if a setting was off
+- [x] In-app mic works in English on the iPhone
+- [ ] Hebrew mic: owner's must-have, not working yet. `voice.js` now tries he-IL, he, iw-IL and reports the reason. If it still fails, the fallback is recording audio and transcribing on the server, which needs another provider's key
+- [ ] Background stays still when the keyboard opens
 
 ## 6. Final checklist
 - [ ] Guests: invite a test address and confirm the email arrives

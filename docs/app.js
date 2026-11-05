@@ -198,6 +198,7 @@ function trackViewport() {
     scrollToEnd();
   };
   viewport.addEventListener('resize', update);
+  viewport.addEventListener('scroll', () => window.scrollTo(0, 0));
   update();
 }
 

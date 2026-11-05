@@ -3,11 +3,14 @@
 import { load, save, showNotice } from './api.js';
 
 const LANGUAGE_KEY = 'voiceLanguage';
-const LANGUAGES = { en: { code: 'en-US', label: 'EN' }, he: { code: 'he-IL', label: 'עב' } };
+// Each language lists the codes to try, in order, because Apple's support varies.
+const LANGUAGES = { en: { codes: ['en-US'], label: 'EN' }, he: { codes: ['he-IL', 'he', 'iw-IL'], label: 'עב' } };
+const HEBREW_HELP = 'Hebrew speech needs Hebrew on your iPhone: Settings, General, Keyboard, Keyboards, Add New Keyboard, Hebrew. Dictation must be on too.';
 
 const $ = (id) => document.getElementById(id);
 
-function errorMessage(error) {
+function errorMessage(error, language) {
+  if (error === 'language-not-supported') return language === 'he' ? HEBREW_HELP : 'This language isn\'t available for speech on your phone.';
   if (error === 'no-speech') return 'I didn\'t hear anything. Please try again.';
   if (error === 'not-allowed' || error === 'service-not-allowed') {
     return 'Speech isn\'t allowed here. Check that Dictation and Siri are on in your iPhone settings, and that this app may use the microphone.';
@@ -32,41 +35,57 @@ export function setupVoice(onTextChange) {
     input.placeholder = listening ? 'Listening...' : 'Message';
   };
 
-  function start() {
+  function start(attempt = 0) {
     if (!Recognition) {
       showNotice('Speech isn\'t available in this app on your phone.');
       return;
     }
     const before = input.value.trim();
+    const codes = LANGUAGES[language].codes;
+    let heard = '';
+    let failed = false;
+    let retrying = false;
+
     recognition = new Recognition();
-    recognition.lang = LANGUAGES[language].code;
+    recognition.lang = codes[attempt];
     recognition.interimResults = true;
     recognition.continuous = false;
     recognition.onresult = (event) => {
-      const heard = [...event.results].map((result) => result[0].transcript).join('');
+      heard = [...event.results].map((result) => result[0].transcript).join('');
       input.value = (before ? before + ' ' : '') + heard;
       onTextChange();
     };
     recognition.onerror = (event) => {
-      if (event.error !== 'aborted') showNotice(errorMessage(event.error));
+      failed = true;
+      if (event.error === 'aborted') return;
+      if (event.error === 'language-not-supported' && attempt + 1 < codes.length) {
+        retrying = true;
+        return;
+      }
+      showNotice(errorMessage(event.error, language));
     };
     recognition.onend = () => {
       recognition = null;
       setListening(false);
+      if (retrying) {
+        start(attempt + 1);
+      } else if (!heard && !failed) {
+        showNotice(language === 'he' ? 'Nothing came through in Hebrew. ' + HEBREW_HELP : errorMessage('no-speech', language));
+      }
     };
     try {
       recognition.start();
       setListening(true);
     } catch (error) {
       recognition = null;
-      showNotice(errorMessage(error.message));
+      showNotice(errorMessage(error.message, language));
     }
   }
 
   // Apple needs speech to start directly from a tap, so this stays on the click itself.
   mic.addEventListener('click', () => {
     if (recognition) recognition.stop();
-    else start();
+    else start(0);
   });
   languageButton.addEventListener('click', () => {
     language = language === 'en' ? 'he' : 'en';

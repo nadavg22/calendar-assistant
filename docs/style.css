@@ -31,7 +31,10 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 
-html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; }
+html { background: var(--background); }
+
+/* The page is locked in place, so iOS can't slide it up when the keyboard opens. */
+html, body { position: fixed; inset: 0; margin: 0; overflow: hidden; overscroll-behavior: none; }
 
 body {
   background: var(--background);
@@ -41,25 +44,35 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* The two soft lights behind the glass. */
-body::before, body::after {
-  content: "";
+/* The two soft lights behind the glass. Both are measured from the top against the
+   largest screen size, so the keyboard opening doesn't move them. */
+.backdrop {
   position: fixed;
-  border-radius: 50%;
+  top: 0;
+  left: 0;
+  width: 100lvw;
+  height: 100lvh;
+  overflow: hidden;
   pointer-events: none;
+  transform: translateZ(0);
 }
-body::before {
-  top: -14vh;
-  left: -30vw;
-  width: 110vw;
-  height: 110vw;
+.backdrop::before, .backdrop::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+}
+.backdrop::before {
+  top: -14lvh;
+  left: -30lvw;
+  width: 110lvw;
+  height: 110lvw;
   background: radial-gradient(circle at 45% 45%, rgb(150 80 225 / .72), rgb(120 60 200 / .3) 42%, transparent 70%);
 }
-body::after {
-  bottom: -10vh;
-  right: -34vw;
-  width: 115vw;
-  height: 115vw;
+.backdrop::after {
+  top: calc(110lvh - 115lvw);
+  left: 19lvw;
+  width: 115lvw;
+  height: 115lvw;
   background: radial-gradient(circle at 50% 50%, rgb(242 130 60 / .7), rgb(235 110 60 / .26) 42%, transparent 70%);
 }
 
