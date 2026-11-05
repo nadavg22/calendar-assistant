@@ -1,15 +1,19 @@
-// Draws the app icon, one soft orange dot on warm black, as PNG files. Run: node scripts/make-icons.js
+// Draws the app icon, a glowing orange and purple orb on black, as PNG files. Run: node scripts/make-icons.js
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 
-const BACKGROUND = [26, 25, 22];
-const ACCENT = [217, 119, 87];
+const BACKGROUND = [8, 8, 11];
+const ORANGE = [242, 138, 72];
+const PURPLE = [139, 74, 214];
 const SAMPLES = 4;
 
-// Coordinates run 0 to 1.
+// Coordinates run 0 to 1. The orb fades from orange to purple along the diagonal.
 function colorAt(x, y) {
-  return (x - 0.5) ** 2 + (y - 0.5) ** 2 <= 0.17 ** 2 ? ACCENT : BACKGROUND;
+  const distance = Math.hypot(x - 0.5, y - 0.5);
+  if (distance > 0.3) return BACKGROUND;
+  const mix = Math.min(1, Math.max(0, (x + y - 0.7) / 0.6));
+  return ORANGE.map((value, i) => value + (PURPLE[i] - value) * mix);
 }
 
 function crc32(buffer) {

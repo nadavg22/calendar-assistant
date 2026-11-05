@@ -29,7 +29,7 @@ Resume work from `PROGRESS.md`. Update it after every completed step.
 - **App only.** No iOS Shortcut, Siri, Back Tap or Action button. Input is typing, the iOS keyboard mic, or the in-app mic button (`docs/voice.js`, browser speech recognition, which Apple supports unevenly in Home Screen apps). The app does not read replies aloud.
 - **Week strip:** `getWeek` reads calendars directly with no AI and doesn't count toward the daily cap.
 - **Guests** are email addresses the owner gives. Anything that invites or changes guests goes through `propose_actions`, because Google emails them.
-- **Models:** `claude-sonnet-5-5` for complex requests, `claude-haiku-5-5` for simple ones. One small Haiku call labels each request, then that model runs the whole request. Live-info questions count as complex.
+- **Models:** `claude-sonnet-5-5` for complex requests, `claude-haiku-5-5` for simple ones. `pickTier_` in `agent.gs` chooses with a keyword pattern, because an AI call to classify added about a second to every request. That model runs the whole request. Live-info questions count as complex.
 - **API details (verified 2026-11-05, recheck docs before writing `ai.gs`):** header `anthropic-version: 2026-10-21`; no `temperature`; no forced `tool_choice`; web search is `web_search_20260318` at $0.01 per search; `pause_turn` means resend the assistant message unchanged; `fallbacks: "default"` on Sonnet only; web search `user_location` rejects country code IL, so send only the timezone.
 - **Prompt caching:** tools and system prompt stay byte-identical between requests. Anything that changes, such as the current date, goes after the cached part.
 - **Claude never computes free time.** `find_free_slots` does, using Google's FreeBusy data, so events marked Free don't block time.
@@ -47,7 +47,7 @@ Resume work from `PROGRESS.md`. Update it after every completed step.
 - Run `scripts/check-secrets.sh` before every commit and push. Commit or push only when the owner says so.
 
 ## Visual style
-Always dark, minimal, warm. Near-black background, cream text, one soft orange accent. Source Serif 4 for English and Frank Ruhl Libre for Hebrew in chat and headings, the system font for small labels; both serifs are stored in the app. Soft rounded corners, no decorative shapes, no shadows, lots of space. User messages are small and muted, assistant replies are larger serif text. Settings swatches show Google's real event colors. Hebrew displays right-to-left.
+Glassmorphism on black, from the owner's reference images: soft purple and orange glows fixed behind everything, frosted glass cards with thin bright edges (`.glass`), an orange-to-purple gradient on primary actions. Montserrat for English and Heebo for Hebrew, both stored in the app. Always dark. No focus outlines on touch screens. Settings swatches show Google's real event colors. Hebrew displays right-to-left.
 
 ## Conventions
 - Apps Script V8, plain functions, one responsibility per file. All Apps Script files share one global scope, so function names must be unique across files.
@@ -55,6 +55,6 @@ Always dark, minimal, warm. Near-black background, cream text, one soft orange a
 - clasp is installed in this project, not globally (the global npm folder needs admin rights), so always run it as `npx clasp`.
 - `npx clasp push` does not update the live web app. Use `sh scripts/deploy.sh`, which pushes and updates the same deployment so the URL stays fixed.
 - Offline tests: `node scripts/test-slots.js` and `node scripts/test-agent.js`. Run both before deploying.
-- Config is cached for 5 minutes, so direct Sheet edits can lag. `testConfig` and settings saves clear the cache.
+- Config is cached for an hour, so direct Sheet edits can lag. `testConfig` and settings saves clear the cache.
 - Config Sheet cells are plain text, so `TRUE` and `60` come back as strings. `config.gs` must convert them.
 - Config tab and column names are listed in `backend/setup.gs`, which is the source of truth.

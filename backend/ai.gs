@@ -1,11 +1,11 @@
 // All AI-provider calls live here. To swap provider, replace this file and keep
-// the same two entry points: aiClassify_ and aiRunToolLoop_.
+// the same entry point: aiRunToolLoop_.
 
 const AI_URL = 'https://api.anthropic.com/v1/messages';
 const AI_API_VERSION = '2026-10-21';
 const AI_FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 const AI_MODELS = {
-  complex: { model: 'claude-sonnet-5-5', effort: 'medium', fallback: true },
+  complex: { model: 'claude-sonnet-5-5', effort: 'low', fallback: true },
   simple: { model: 'claude-haiku-5-5', effort: 'low', fallback: false },
 };
 const AI_MAX_TOKENS = 8000;
@@ -14,11 +14,6 @@ const AI_TIME_LIMIT_MS = 150000;
 const AI_RETRY_STATUSES = [429, 500, 502, 503, 529];
 const AI_MAX_RETRIES = 2;
 const AI_WEB_SEARCH_MAX_USES = 3;
-
-const AI_CLASSIFIER_PROMPT = 'Label a calendar assistant request. Reply with one word.\n' +
-  'complex: finding free time, scheduling or moving several events, anything about a place or its hours, ' +
-  'anything needing live information from the web, or several steps.\n' +
-  'simple: one event, one quick question about the calendar, or a short reply to the assistant.';
 
 function aiRequest_(body, useFallbackBeta) {
   const apiKey = (PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY') || '').trim();
@@ -65,23 +60,6 @@ function aiErrorMessage_(text) {
   } catch (error) {
     return String(text).slice(0, 200);
   }
-}
-
-// Returns 'simple' or 'complex'. Anything unclear counts as complex.
-function aiClassify_(text, previousReply) {
-  const response = aiRequest_({
-    model: AI_MODELS.simple.model,
-    max_tokens: 10,
-    thinking: { type: 'disabled' },
-    output_config: { effort: 'low' },
-    system: AI_CLASSIFIER_PROMPT,
-    messages: [{
-      role: 'user',
-      content: 'Previous assistant message: ' + (previousReply || '(none)') + '\nRequest: ' + text,
-    }],
-  }, false);
-  const label = aiFinalText_(response.content).toLowerCase();
-  return label.indexOf('simple') >= 0 ? 'simple' : 'complex';
 }
 
 function aiWebSearchTool_() {

@@ -20,12 +20,11 @@ Object.assign(globalThis, {
     fetch(url, options) {
       const body = JSON.parse(options.payload);
       requests.push({ body, headers: options.headers });
-      const isClassifier = body.max_tokens === 10;
-      const next = isClassifier ? { content: [{ type: 'text', text: 'complex' }], stop_reason: 'end_turn' } : scripted.shift();
+      const next = scripted.shift();
       return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ usage: {}, ...next }) };
     },
   },
-  getConfig: () => ({ calendars: [{ label: 'Personal' }, { label: 'Studio' }], colorRules: [], preferences: { dailyRequestCap: cap } }),
+  getConfig: () => ({ calendars: [{ label: 'Personal' }, { label: 'Studio' }], places: [{ name: 'Holmes', isStale: true }], colorRules: [], preferences: { dailyRequestCap: cap } }),
   getCurrentDatetime: () => ({ day: 'Thursday', date: '2026-11-05', time: '13:00', timezone: 'Asia/Jerusalem' }),
   appendLog_: () => {},
   resolveCalendar_: (label) => ({ label }),
@@ -184,7 +183,7 @@ const tests = {
   },
   'request format: cache marker, version header, fallback on Sonnet only'() {
     scripted = [say('Hi')];
-    handleChat('s', 'Hello');
+    handleChat('s', 'When am I free next week?');
     const { body, headers } = requests[requests.length - 1];
     assert.deepStrictEqual(body.system[0].cache_control, { type: 'ephemeral' });
     assert.strictEqual(headers['anthropic-version'], '2026-10-21');
@@ -195,6 +194,17 @@ const tests = {
     assert.strictEqual(body.temperature, undefined);
     assert.strictEqual(body.tool_choice, undefined);
     assert.ok(!body.system[0].text.includes('2026'), 'nothing date-specific in the cached prompt');
+  },
+  'routing: planning and live info use Sonnet, simple requests use Haiku'() {
+    ['This week I want to work out three times, evenings', 'When am I free for 2 hours next week?', 'Is the gym open on Sukkot?',
+      'מתי אני פנוי בשבוע הבא?', 'אני רוצה שלושה אימונים השבוע', 'האם חדר הכושר פתוח בחג?'].forEach((text) => assert.strictEqual(pickTier_(text), 'complex', text));
+    ['Add rehearsal to Studio tomorrow at 8pm', 'What does my Thursday look like?', 'Move the second one to 9',
+      'תוסיף פגישה ליומן Personal מחר בשמונה', 'מה יש לי ביום ראשון?'].forEach((text) => assert.strictEqual(pickTier_(text), 'simple', text));
+  },
+  'the context lists saved places, so Claude needs no tool for them'() {
+    scripted = [say('Ok')];
+    handleChat('s', 'Hi');
+    assert.ok(requests[0].body.messages[0].content.includes('Saved places: Holmes (stale)'));
   },
   'pause_turn resends without a new user message'() {
     scripted = [{ content: [{ type: 'text', text: 'Searching' }], stop_reason: 'pause_turn' }, say('Found it.')];

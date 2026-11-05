@@ -30,7 +30,7 @@ function toggle(labelText, checked) {
 }
 
 function section(title, ...content) {
-  return el('details', { class: 'section' }, el('summary', {}, title), el('div', { class: 'section-body' }, ...content));
+  return el('details', { class: 'section glass' }, el('summary', {}, title), el('div', { class: 'section-body' }, ...content));
 }
 
 // A save button with a status line that handles the wait and any error.

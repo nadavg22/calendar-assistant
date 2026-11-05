@@ -2,7 +2,7 @@
 
 const TZ = 'Asia/Jerusalem';
 const CONFIG_CACHE_KEY = 'config';
-const CONFIG_CACHE_SECONDS = 300;
+const CONFIG_CACHE_SECONDS = 3600;
 const PLACE_STALE_DAYS = 60;
 const LOG_MAX_ROWS = 500;
 const LOG_SUMMARY_LENGTH = 80;
@@ -13,10 +13,15 @@ const GOOGLE_EVENT_COLORS = {
   Peacock: '7', Graphite: '8', Blueberry: '9', Basil: '10', Tomato: '11',
 };
 
+let configSpreadsheet_ = null;
+
+// Opening the Sheet is slow, so each request opens it once.
 function getConfigSpreadsheet_() {
+  if (configSpreadsheet_) return configSpreadsheet_;
   const id = PropertiesService.getScriptProperties().getProperty('CONFIG_SHEET_ID');
   if (!id) throw new Error('Config Sheet not found. Run setupConfigSheet first.');
-  return SpreadsheetApp.openById(id);
+  configSpreadsheet_ = SpreadsheetApp.openById(id);
+  return configSpreadsheet_;
 }
 
 function readTab_(name) {

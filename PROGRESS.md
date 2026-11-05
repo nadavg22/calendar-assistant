@@ -37,7 +37,9 @@ Full plan: see CLAUDE.md for decisions. Stop after each step so the owner can te
 - [x] Added to Home Screen, token entered in the installed app
 
 ## 5b. Owner's changes after first install
-- [x] Dark minimal redesign, shapes removed, serif fonts, new icon
+- [x] Redesign to the owner's glass references: black, purple and orange glow, frosted cards, Montserrat and Heebo, new icon
+- [x] Focus outlines removed on touch screens
+- [x] Speed: no AI classifier call, one Sheet open per request, config cached an hour, fewer tool rounds, weeks cached and prefetched. Log tab now records seconds per request
 - [x] Week strip with day view
 - [x] Guests (emails typed by the owner, always confirmed)
 - [ ] In-app mic button tested on the iPhone, and keyboard mic fixed if a setting was off

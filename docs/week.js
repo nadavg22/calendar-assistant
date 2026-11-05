@@ -35,6 +35,8 @@ export function setupWeek(onHeightChange) {
   let selected = null;
   let data = load(WEEK_KEY);
   let latestRequest = 0;
+  // Weeks already seen, so the arrows answer at once while a fresh copy loads.
+  const weeks = { 0: data };
 
   function renderDay() {
     const panel = $('day');
@@ -83,19 +85,35 @@ export function setupWeek(onHeightChange) {
     latestRequest += 1;
     const request = latestRequest;
     try {
-      const result = await call('getWeek', { offset });
+      const requested = offset;
+      const result = await call('getWeek', { offset: requested });
+      weeks[requested] = result;
+      if (requested === 0) save(WEEK_KEY, result);
       if (request !== latestRequest) return;
       data = result;
-      if (offset === 0) save(WEEK_KEY, data);
       render();
+      prefetch(requested + 1);
     } catch {
       // The preview is a convenience, so it just keeps showing what it has.
+    }
+  }
+
+  async function prefetch(week) {
+    if (weeks[week]) return;
+    try {
+      weeks[week] = await call('getWeek', { offset: week });
+    } catch {
+      // It will load when the week is opened.
     }
   }
 
   function move(step) {
     offset += step;
     selected = null;
+    if (weeks[offset]) {
+      data = weeks[offset];
+      render();
+    }
     refresh();
   }
 
