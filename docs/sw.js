@@ -1,6 +1,6 @@
 // Keeps the app itself available offline. Requests to the backend are never cached.
-// Serves the saved copy at once and refreshes it in the background, so updates appear on the next open.
-const CACHE = 'calendar-shell-v2';
+// Always asks the network first so updates appear straight away, and uses the saved copy only when offline.
+const CACHE = 'calendar-shell-v3';
 const SHELL = [
   './', 'index.html', 'style.css', 'app.js', 'api.js', 'settings.js', 'week.js', 'voice.js', 'manifest.webmanifest',
   'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png',
@@ -24,15 +24,14 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET' || url.origin !== self.location.origin) return;
 
   event.respondWith(caches.open(CACHE).then(async (cache) => {
-    const cached = await cache.match(event.request, { ignoreSearch: true });
-    const refresh = fetch(event.request).then((response) => {
+    try {
+      const response = await fetch(event.request, { cache: 'no-cache' });
       if (response.ok) cache.put(event.request, response.clone());
       return response;
-    });
-    if (cached) {
-      event.waitUntil(refresh.catch(() => {}));
-      return cached;
+    } catch (error) {
+      const cached = await cache.match(event.request, { ignoreSearch: true });
+      if (cached) return cached;
+      throw error;
     }
-    return refresh;
   }));
 });
