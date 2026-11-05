@@ -2,7 +2,7 @@
 import {
   animate, call, getConnection, isHebrew, isValidUrl, load, post, remove, save, setConnection, showNotice,
 } from './api.js';
-import { openSettings } from './settings.js';
+import { fetchSettings, openSettings } from './settings.js';
 import { setupVoice } from './voice.js';
 import { setupWeek } from './week.js';
 
@@ -10,6 +10,9 @@ const CHAT_KEY = 'chat';
 const SESSION_HOURS = 6;
 const MAX_SAVED_MESSAGES = 40;
 const KEYBOARD_MIN_HEIGHT = 80;
+const TAP_MOVEMENT = 10;
+const KEYBOARD_SETTLE_MS = 380;
+const TEXT_TYPES = ['text', 'url', 'password', 'number', 'time'];
 
 const $ = (id) => document.getElementById(id);
 const views = ['setup-view', 'chat-view', 'settings-view'];
@@ -179,6 +182,7 @@ async function connect(event) {
     await post(connection, 'getSettings');
     setConnection(connection);
     showChat();
+    fetchSettings();
   } catch (error) {
     status.textContent = error.code === 'unauthorized' ? 'That token was rejected.' : error.message;
   }
@@ -192,6 +196,8 @@ export function showChat() {
 
 export function signOut() {
   remove('connection');
+  remove('settings');
+  remove('weeks');
   remove(CHAT_KEY);
   chat = newChat();
   showSetup();
@@ -217,12 +223,37 @@ function trackViewport() {
   update();
 }
 
-// Focusing without a scroll stops iOS sliding the page to reach the box.
-function focusWithoutScrolling(event) {
-  const input = $('input');
-  if (document.activeElement === input) return;
-  event.preventDefault();
-  input.focus({ preventScroll: true });
+function textFieldAt(target) {
+  const field = target.closest('input, textarea') || target.closest('label')?.control;
+  if (!field) return null;
+  return field.tagName === 'TEXTAREA' || TEXT_TYPES.includes(field.type) ? field : null;
+}
+
+// Brings a field to the middle of the space above the keyboard, by scrolling only its own list.
+function bringIntoView(field) {
+  const list = field.closest('.scroller');
+  if (!list || field.id === 'input') return;
+  const box = field.getBoundingClientRect();
+  const middle = window.visualViewport ? window.visualViewport.height / 2 : window.innerHeight / 2;
+  list.scrollBy({ top: box.top + box.height / 2 - middle, behavior: 'smooth' });
+}
+
+// Left alone, iOS slides the whole screen up to reach a field. Focusing it ourselves stops
+// that, everywhere in the app. A finger that moved was scrolling, so that is left alone.
+function setupFieldFocus() {
+  let start = null;
+  document.addEventListener('touchstart', (event) => {
+    start = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+  }, { passive: true });
+  document.addEventListener('touchend', (event) => {
+    const field = textFieldAt(event.target);
+    const touch = event.changedTouches[0];
+    const moved = !start || Math.hypot(touch.clientX - start.x, touch.clientY - start.y) > TAP_MOVEMENT;
+    if (!field || moved || document.activeElement === field) return;
+    event.preventDefault();
+    field.focus({ preventScroll: true });
+    setTimeout(() => bringIntoView(field), KEYBOARD_SETTLE_MS);
+  }, { passive: false });
 }
 
 function start() {
@@ -230,34 +261,26 @@ function start() {
   $('setup-form').addEventListener('submit', connect);
   $('composer').addEventListener('submit', (event) => { event.preventDefault(); send(); });
   $('input').addEventListener('input', resizeInput);
-  $('input').addEventListener('touchend', focusWithoutScrolling);
   // Tapping the faded chat closes the keyboard.
   $('scroller').addEventListener('click', () => $('input').blur());
-  // Settings fields can sit behind the keyboard, so bring the one in use into view.
-  ['settings-body', 'place-body'].forEach((id) => {
-    $(id).addEventListener('focusin', (event) => {
-      setTimeout(() => event.target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 350);
-    });
-  });
-  $('input').addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
-      event.preventDefault();
-      send();
-    }
-  });
   $('confirm').addEventListener('click', () => run('confirm', { pendingId: chat.pending.id }));
   $('cancel').addEventListener('click', () => run('cancel', { pendingId: chat.pending.id }));
   $('open-settings').addEventListener('click', () => openSettings({ showView, showChat, signOut, handleError }));
   $('notice-close').addEventListener('click', () => $('notice').close());
 
   week = setupWeek(scrollToEnd);
+  setupFieldFocus();
   setupVoice(resizeInput);
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && !$('chat-view').hidden) week.refresh();
   });
   trackViewport();
-  if (getConnection()) showChat();
-  else showSetup();
+  if (getConnection()) {
+    showChat();
+    fetchSettings();
+  } else {
+    showSetup();
+  }
 
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 }

@@ -1,12 +1,11 @@
 // The week strip above the chat. It reads straight from the calendars, with no AI.
-import { animate, call, el, getConnection, load, save, slideClosed, slideOpen } from './api.js';
+// Each week is a page in a native horizontal scroller, so iOS itself handles the swipe.
+import { call, el, getConnection, load, save, slideClosed, slideOpen } from './api.js';
 
-const WEEK_KEY = 'week';
+const WEEK_KEY = 'weeks';
 const MAX_MARKS = 4;
-const SWIPE_DISTANCE = 45;
-const DRAG_FACTOR = 0.7;
-const SLIDE_DISTANCE = 70;
-const SLIDE_OUT_MS = 150;
+const FIRST_WEEK = -26;
+const LAST_WEEK = 52;
 const EVENT_COLORS = {
   1: '#7986CB', 2: '#33B679', 3: '#8E24AA', 4: '#E67C73', 5: '#F6BF26', 6: '#F4511E',
   7: '#039BE5', 8: '#616161', 9: '#3F51B5', 10: '#0B8043', 11: '#D50000',
@@ -17,9 +16,11 @@ const $ = (id) => document.getElementById(id);
 // Dates here are plain yyyy-mm-dd text, so noon UTC keeps them on the right day.
 const asDate = (day) => new Date(day + 'T12:00:00Z');
 const format = (day, options) => asDate(day).toLocaleDateString('en-GB', { timeZone: 'UTC', ...options });
+const addDays = (day, count) => new Date(asDate(day).getTime() + count * 86400000).toISOString().slice(0, 10);
+const todayInIsrael = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' });
 
-function eventsOn(data, day) {
-  return data.events.filter((event) => {
+function eventsOn(events, day) {
+  return events.filter((event) => {
     const first = event.start.slice(0, 10);
     const last = event.end.slice(0, 10);
     // An all-day event's end date is the day after it finishes.
@@ -35,18 +36,25 @@ function eventLine(event) {
 }
 
 export function setupWeek(onHeightChange) {
-  let offset = 0;
+  const strip = $('week');
+  const today = todayInIsrael();
+  const thisSunday = addDays(today, -asDate(today).getUTCDay());
+  const sundayOf = (offset) => addDays(thisSunday, 7 * offset);
+  const daysOf = (offset) => [0, 1, 2, 3, 4, 5, 6].map((i) => addDays(sundayOf(offset), i));
+
+  // Events by the week's Sunday, so saved weeks show at once.
+  const weeks = load(WEEK_KEY, {});
+  const panes = {};
+  let current = 0;
   let selected = null;
-  let data = load(WEEK_KEY);
-  let latestRequest = 0;
-  let slideFrom = 0;
-  // Weeks already seen, so the arrows answer at once while a fresh copy loads.
-  const weeks = { 0: data };
+  let positioned = false;
+
+  const eventsOfWeek = (offset) => weeks[sundayOf(offset)] || [];
 
   async function renderDay() {
     const panel = $('day');
     const wasOpen = !panel.hidden;
-    if (!selected || !data) {
+    if (!selected) {
       if (wasOpen) {
         await slideClosed(panel);
         if (!selected) panel.hidden = true;
@@ -54,7 +62,7 @@ export function setupWeek(onHeightChange) {
       }
       return;
     }
-    const events = eventsOn(data, selected);
+    const events = eventsOn(eventsOfWeek(current), selected);
     panel.replaceChildren(
       el('p', { class: 'day-title' }, format(selected, { weekday: 'long', day: 'numeric', month: 'long' })),
       events.length ? el('ul', {}, ...events.map(eventLine)) : el('p', { class: 'day-empty' }, 'Nothing planned'),
@@ -64,14 +72,14 @@ export function setupWeek(onHeightChange) {
     onHeightChange();
   }
 
-  function dayButton(day) {
-    const marks = eventsOn(data, day).slice(0, MAX_MARKS).map((event) => {
+  function dayButton(day, events) {
+    const marks = eventsOn(events, day).slice(0, MAX_MARKS).map((event) => {
       const mark = el('i', {});
       if (EVENT_COLORS[event.colorId]) mark.style.background = EVENT_COLORS[event.colorId];
       return mark;
     });
     const classes = ['date'];
-    if (day === data.today) classes.push('today');
+    if (day === today) classes.push('today');
     if (day === selected) classes.push('selected');
     return el('button', {
       class: classes.join(' '),
@@ -79,7 +87,8 @@ export function setupWeek(onHeightChange) {
       'aria-label': format(day, { weekday: 'long', day: 'numeric', month: 'long' }),
       onclick: () => {
         selected = selected === day ? null : day;
-        render();
+        fillPane(current);
+        renderDay();
       },
     },
     el('span', { class: 'weekday' }, format(day, { weekday: 'narrow' })),
@@ -87,93 +96,65 @@ export function setupWeek(onHeightChange) {
     el('span', { class: 'marks' }, ...marks));
   }
 
-  function render() {
-    if (!data) return;
-    $('week-title').textContent = format(data.days[3], { month: 'long' });
-    $('week').replaceChildren(...data.days.map(dayButton));
-    renderDay();
-    onHeightChange();
-    if (slideFrom) {
-      animate($('week'), [{ transform: `translateX(${slideFrom}px)`, opacity: 0 }, { transform: 'none', opacity: 1 }]);
-      slideFrom = 0;
-    }
+  function fillPane(offset) {
+    const pane = panes[offset];
+    if (!pane) return;
+    const events = eventsOfWeek(offset);
+    pane.replaceChildren(...daysOf(offset).map((day) => dayButton(day, events)));
   }
 
-  async function refresh() {
-    if (!getConnection()) return;
-    latestRequest += 1;
-    const request = latestRequest;
+  function fillNearby() {
+    [current - 1, current, current + 1].forEach(fillPane);
+  }
+
+  function showTitle() {
+    $('week-title').textContent = format(daysOf(current)[3], { month: 'long' });
+  }
+
+  async function fetchWeek(offset) {
     try {
-      const requested = offset;
-      const result = await call('getWeek', { offset: requested });
-      weeks[requested] = result;
-      if (requested === 0) save(WEEK_KEY, result);
-      if (request !== latestRequest) return;
-      data = result;
-      render();
-      prefetch(requested + 1);
+      const { events } = await call('getWeek', { offset });
+      weeks[sundayOf(offset)] = events;
+      save(WEEK_KEY, weeks);
+      fillPane(offset);
+      if (offset === current && selected) renderDay();
     } catch {
       // The preview is a convenience, so it just keeps showing what it has.
     }
   }
 
-  async function prefetch(week) {
-    if (weeks[week]) return;
-    try {
-      weeks[week] = await call('getWeek', { offset: week });
-    } catch {
-      // It will load when the week is opened.
-    }
+  function moveToPane(offset, behavior) {
+    strip.scrollTo({ left: panes[offset].offsetLeft, behavior });
   }
 
-  // The old week glides out from wherever it is, then the new one glides in.
-  async function move(step, from = 0) {
-    offset += step;
+  function refresh() {
+    if (!getConnection()) return;
+    if (!positioned && strip.clientWidth > 0) {
+      moveToPane(current, 'auto');
+      positioned = true;
+    }
+    [current, current + 1, current - 1].forEach(fetchWeek);
+  }
+
+  function onScroll() {
+    const page = Math.round(strip.scrollLeft / strip.clientWidth) + FIRST_WEEK;
+    if (page === current || !positioned) return;
+    current = page;
     selected = null;
-    const next = weeks[offset];
-    if (next) {
-      const strip = $('week');
-      await animate(strip, [
-        { transform: `translateX(${from}px)`, opacity: 1 },
-        { transform: `translateX(${-step * SLIDE_DISTANCE}px)`, opacity: 0 },
-      ], SLIDE_OUT_MS);
-      data = next;
-    }
-    slideFrom = step * SLIDE_DISTANCE;
-    if (next) render();
-    refresh();
+    showTitle();
+    fillNearby();
+    renderDay();
+    [current, current + 1, current - 1].filter((offset) => !weeks[sundayOf(offset)]).forEach(fetchWeek);
   }
 
-  // The strip follows the finger, then either moves on a week or settles back.
-  function setupSwipe() {
-    const strip = $('week');
-    let start = null;
-    let distance = 0;
-    strip.addEventListener('touchstart', (event) => {
-      start = { x: event.touches[0].clientX, y: event.touches[0].clientY };
-      distance = 0;
-    }, { passive: true });
-    strip.addEventListener('touchmove', (event) => {
-      if (!start) return;
-      const x = event.touches[0].clientX - start.x;
-      const y = event.touches[0].clientY - start.y;
-      if (Math.abs(x) > Math.abs(y)) {
-        distance = x;
-        strip.style.transform = `translateX(${x * DRAG_FACTOR}px)`;
-      }
-    }, { passive: true });
-    strip.addEventListener('touchend', () => {
-      const dragged = strip.style.transform;
-      strip.style.transform = '';
-      start = null;
-      if (Math.abs(distance) >= SWIPE_DISTANCE) move(distance < 0 ? 1 : -1, distance * DRAG_FACTOR);
-      else if (dragged) animate(strip, [{ transform: dragged }, { transform: 'none' }]);
-    });
+  for (let offset = FIRST_WEEK; offset <= LAST_WEEK; offset += 1) {
+    panes[offset] = el('div', { class: 'week-pane' });
+    strip.append(panes[offset]);
   }
-
-  setupSwipe();
-  $('week-prev').addEventListener('click', () => move(-1));
-  $('week-next').addEventListener('click', () => move(1));
-  render();
+  strip.addEventListener('scroll', onScroll, { passive: true });
+  $('week-prev').addEventListener('click', () => moveToPane(Math.max(current - 1, FIRST_WEEK), 'smooth'));
+  $('week-next').addEventListener('click', () => moveToPane(Math.min(current + 1, LAST_WEEK), 'smooth'));
+  showTitle();
+  fillNearby();
   return { refresh };
 }

@@ -87,8 +87,25 @@ export function showNotice(text) {
   if (!dialog.open) dialog.showModal();
 }
 
-const EASE = 'cubic-bezier(.22, 1, .36, 1)';
-const DURATION = 420;
+// A real spring, the way iOS moves things: it arrives quickly, drifts a touch past, and settles.
+function springEasing() {
+  const damping = 0.68;
+  const frequency = 9.5;
+  const damped = frequency * Math.sqrt(1 - damping ** 2);
+  const points = [];
+  for (let i = 0; i <= 40; i += 1) {
+    const t = i / 40;
+    const decay = Math.exp(-damping * frequency * t);
+    const value = 1 - decay * (Math.cos(damped * t) + (damping * frequency / damped) * Math.sin(damped * t));
+    points.push(i === 40 ? 1 : Number(value.toFixed(4)));
+  }
+  return 'linear(' + points.join(', ') + ')';
+}
+
+const SPRING = springEasing();
+const EASE = CSS.supports('animation-timing-function', SPRING) ? SPRING : 'cubic-bezier(.22, 1, .36, 1)';
+const DURATION = 620;
+document.documentElement.style.setProperty('--ease', EASE);
 
 // Plays an animation and resolves when it ends. People who turned on Reduce Motion skip it.
 export function animate(node, keyframes, duration = DURATION) {

@@ -1,5 +1,5 @@
 // The Settings screen. Each section saves on its own.
-import { call, el, getConnection, setConnection, slideClosed, slideOpen } from './api.js';
+import { call, el, getConnection, load, save, setConnection, slideClosed, slideOpen } from './api.js';
 
 const COLORS = {
   Lavender: '#7986CB', Sage: '#33B679', Grape: '#8E24AA', Flamingo: '#E67C73', Banana: '#F6BF26', Tangerine: '#F4511E',
@@ -10,6 +10,8 @@ const DAYS = [
   ['hours_thu', 'Thursday'], ['hours_fri', 'Friday'], ['hours_sat', 'Saturday'],
 ];
 const HOURS_PATTERN = /^(closed|\d{1,2}:\d{2}-\d{1,2}:\d{2}(\s*,\s*\d{1,2}:\d{2}-\d{1,2}:\d{2})*)?$/i;
+
+const SETTINGS_KEY = 'settings';
 
 const $ = (id) => document.getElementById(id);
 let swatchGroup = 0;
@@ -60,6 +62,7 @@ function saveRow(onSave, label = 'Save') {
       try {
         await onSave();
         status.textContent = 'Saved';
+        fetchSettings();
       } catch (error) {
         status.textContent = '';
         nav.handleError(error);
@@ -343,18 +346,43 @@ function securitySection() {
     }, 'Disconnect this phone'));
 }
 
+function renderSettings() {
+  $('settings-body').replaceChildren(placesSection(), calendarsSection(), colorsSection(), notificationsSection(), preferencesSection(), securitySection());
+}
+
+// Saves the latest settings on the phone, so the screen can open with no wait.
+export async function fetchSettings() {
+  const latest = await call('getSettings').catch(() => null);
+  if (!latest) return null;
+  save(SETTINGS_KEY, latest);
+  return latest;
+}
+
+function isInUse() {
+  return Boolean($('settings-body').querySelector('details[open]')) || $('place-dialog').open;
+}
+
 export async function openSettings(navigation) {
   nav = navigation;
-  const body = $('settings-body');
-  body.replaceChildren(el('p', { class: 'status pad' }, 'Loading...'));
-  nav.showView('settings-view');
   $('close-settings').onclick = () => nav.showChat();
   $('place-close').onclick = () => $('place-dialog').close();
-  try {
-    settings = await call('getSettings');
-    body.replaceChildren(placesSection(), calendarsSection(), colorsSection(), notificationsSection(), preferencesSection(), securitySection());
-  } catch (error) {
+
+  const saved = load(SETTINGS_KEY);
+  if (saved) {
+    settings = saved;
+    renderSettings();
+  } else {
+    $('settings-body').replaceChildren(el('p', { class: 'status pad' }, 'Loading...'));
+  }
+  nav.showView('settings-view');
+
+  // A fresh copy loads behind the scenes, and never replaces a section you have open.
+  const latest = await fetchSettings();
+  if (latest && !$('settings-view').hidden && !isInUse() && JSON.stringify(latest) !== JSON.stringify(saved)) {
+    settings = latest;
+    renderSettings();
+  } else if (!latest && !saved) {
     nav.showChat();
-    nav.handleError(error);
+    nav.handleError(new Error('Can\'t reach the assistant. Check your connection and try again.'));
   }
 }
