@@ -105,12 +105,50 @@ function springEasing() {
 const SPRING = springEasing();
 const EASE = CSS.supports('animation-timing-function', SPRING) ? SPRING : 'cubic-bezier(.22, 1, .36, 1)';
 const DURATION = 620;
+const FOLD_BASE_MS = 480;
+const FOLD_MS_PER_PIXEL = 0.45;
+const FOLD_MAX_MS = 1000;
 document.documentElement.style.setProperty('--ease', EASE);
 
 // Plays an animation and resolves when it ends. People who turned on Reduce Motion skip it.
 export function animate(node, keyframes, duration = DURATION) {
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return Promise.resolve();
   return node.animate(keyframes, { duration, easing: EASE }).finished.catch(() => {});
+}
+
+// Reveals or hides a large section. It lays out once, then only a mask and the items below
+// it move, which costs the phone far less than resizing it on every frame.
+export async function foldSection(section, body, opening) {
+  if (section.dataset.moving) return;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    section.open = opening;
+    return;
+  }
+  section.dataset.moving = 'true';
+  if (opening) section.open = true;
+
+  const height = body.offsetHeight;
+  const duration = Math.min(FOLD_MAX_MS, Math.max(DURATION, FOLD_BASE_MS + height * FOLD_MS_PER_PIXEL));
+  const options = { duration, easing: EASE, fill: 'both' };
+  const order = (frames) => (opening ? frames : [...frames].reverse());
+  const below = [];
+  for (let node = section.nextElementSibling; node; node = node.nextElementSibling) below.push(node);
+
+  const moves = [
+    section.animate(order([
+      { clipPath: `inset(0 0 ${height}px 0 round 22px)` },
+      { clipPath: 'inset(0 0 0 0 round 22px)' },
+    ]), options),
+    body.animate(order([{ opacity: 0 }, { opacity: 1 }]), options),
+    ...below.map((node) => node.animate(order([
+      { transform: `translateY(${-height}px)` },
+      { transform: 'none' },
+    ]), options)),
+  ];
+  await Promise.all(moves.map((move) => move.finished.catch(() => {})));
+  if (!opening) section.open = false;
+  moves.forEach((move) => move.cancel());
+  delete section.dataset.moving;
 }
 
 function openShape(node) {

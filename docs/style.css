@@ -334,7 +334,7 @@ input:focus, select:focus, .section-body textarea:focus { border-color: rgb(255 
 .section summary::-webkit-details-marker { display: none; }
 .section summary::after { content: "+"; color: var(--muted); font-size: 22px; font-weight: 300; }
 .section[open] summary::after { content: "–"; }
-.section-body { display: grid; gap: 16px; padding: 2px 18px 20px; }
+.section-body { display: grid; gap: 16px; padding: 2px 18px 20px; contain: layout style; }
 
 fieldset { display: grid; gap: 14px; min-width: 0; margin: 0; padding: 0 0 18px; border: 0; border-bottom: 1px solid var(--edge); }
 

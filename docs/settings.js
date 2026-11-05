@@ -1,5 +1,5 @@
 // The Settings screen. Each section saves on its own.
-import { call, el, getConnection, load, save, setConnection, slideClosed, slideOpen } from './api.js';
+import { call, el, foldSection, getConnection, load, save, setConnection } from './api.js';
 
 const COLORS = {
   Lavender: '#7986CB', Sage: '#33B679', Grape: '#8E24AA', Flamingo: '#E67C73', Banana: '#F6BF26', Tangerine: '#F4511E',
@@ -35,15 +35,9 @@ function section(title, ...content) {
   const body = el('div', { class: 'section-body' }, ...content);
   const details = el('details', { class: 'section glass' });
   const summary = el('summary', {
-    onclick: async (event) => {
+    onclick: (event) => {
       event.preventDefault();
-      if (details.open) {
-        await slideClosed(body);
-        details.open = false;
-      } else {
-        details.open = true;
-        slideOpen(body);
-      }
+      foldSection(details, body, !details.open);
     },
   }, title);
   details.append(summary, body);

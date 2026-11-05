@@ -1,6 +1,6 @@
 // Keeps the app itself available offline. Requests to the backend are never cached.
 // Always asks the network first so updates appear straight away, and uses the saved copy only when offline.
-const CACHE = 'calendar-shell-v8';
+const CACHE = 'calendar-shell-v9';
 const SHELL = [
   './', 'index.html', 'style.css', 'app.js', 'api.js', 'settings.js', 'week.js', 'voice.js', 'manifest.webmanifest',
   'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png',

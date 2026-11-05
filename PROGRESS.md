@@ -47,7 +47,8 @@ Full plan: see CLAUDE.md for decisions. Stop after each step so the owner can te
 - [x] Animations: sections, week swipe, screen changes, messages, button press
 - [x] Settings opens instantly from a copy saved on the phone, and refreshes behind the scenes
 - [x] Week strip is a native scroll-snap scroller, motion uses a real spring curve
-- [ ] Owner to confirm the animations now feel right
+- [x] Stiff animations were caused by Low Power Mode, which throttles web animation on iPhone. Check that first if motion complaints return
+- [x] Settings sections fold with a mask and transforms (`foldSection`), and larger sections run longer
 - [x] Main screen keyboard confirmed good. Settings fields use the same no-slide focus (`setupFieldFocus`), to be confirmed
 - [x] Keyboard: layout never resizes, chat fades behind it, only the message box rises (`--keyboard`, `.keyboard-open`). Blur limited to `.week` and `.composer` for smooth animation on iPhone
 
