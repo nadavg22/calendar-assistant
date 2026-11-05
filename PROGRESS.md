@@ -45,7 +45,7 @@ Full plan: see CLAUDE.md for decisions. Stop after each step so the owner can te
 - [x] In-app mic works in English on the iPhone
 - [x] Hebrew mic works on the iPhone (`voice.js` tries he-IL, he, iw-IL)
 - [x] Animations: sections, week swipe, screen changes, messages, button press
-- [ ] Screen stays still when the keyboard opens (app follows `visualViewport.offsetTop`)
+- [ ] Keyboard: layout never resizes, chat fades behind it, only the message box rises (`--keyboard`, `.keyboard-open`). Blur limited to `.week` and `.composer` for smooth animation on iPhone
 
 ## 6. Final checklist
 - [ ] Guests: invite a test address and confirm the email arrives

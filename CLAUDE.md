@@ -47,7 +47,7 @@ Resume work from `PROGRESS.md`. Update it after every completed step.
 - Run `scripts/check-secrets.sh` before every commit and push. Commit or push only when the owner says so.
 
 ## Visual style
-Glassmorphism on black, from the owner's reference images: soft purple and orange glows fixed behind everything, frosted glass cards with thin bright edges (`.glass`), an orange-to-purple gradient on primary actions. Montserrat for English and Heebo for Hebrew, both stored in the app. Always dark. No focus outlines on touch screens. Settings swatches show Google's real event colors. Hebrew displays right-to-left.
+Glassmorphism on black, from the owner's reference images: soft purple and orange glows fixed behind everything, frosted glass cards with thin bright edges (`.glass`), an orange-to-purple gradient on primary actions. Montserrat for English and Heebo for Hebrew, both stored in the app. Always dark. No focus outlines on touch screens. Real `backdrop-filter` blur only on the week strip and message box, because it makes animation stutter on iPhone. The layout never resizes for the keyboard. Settings swatches show Google's real event colors. Hebrew displays right-to-left.
 
 ## Conventions
 - Apps Script V8, plain functions, one responsibility per file. All Apps Script files share one global scope, so function names must be unique across files.

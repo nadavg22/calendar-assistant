@@ -9,6 +9,7 @@ import { setupWeek } from './week.js';
 const CHAT_KEY = 'chat';
 const SESSION_HOURS = 6;
 const MAX_SAVED_MESSAGES = 40;
+const KEYBOARD_MIN_HEIGHT = 80;
 
 const $ = (id) => document.getElementById(id);
 const views = ['setup-view', 'chat-view', 'settings-view'];
@@ -21,7 +22,7 @@ export function showView(id) {
   const previous = views.find((view) => !$(view).hidden);
   views.forEach((view) => { $(view).hidden = view !== id; });
   if (previous && previous !== id) {
-    const from = id === 'settings-view' ? 40 : -40;
+    const from = id === 'settings-view' ? 56 : -56;
     animate($(id), [{ transform: `translateX(${from}px)`, opacity: 0 }, { transform: 'none', opacity: 1 }]);
   }
 }
@@ -137,6 +138,7 @@ async function send() {
   const text = input.value.trim();
   if (!text || busy) return;
   input.value = '';
+  input.blur();
   resizeInput();
   addMessage('user', text);
   const sent = await run('chat', { message: text });
@@ -195,16 +197,20 @@ export function signOut() {
   showSetup();
 }
 
-// iOS shows the keyboard by shrinking the visible area and sliding it down the page.
-// The app follows that area, so the header and background stay where they were.
+// The layout never resizes for the keyboard, so nothing squashes. The chat stays where it is
+// and fades, and only the message box rises, which CSS animates alongside the keyboard.
 function trackViewport() {
   const viewport = window.visualViewport;
   if (!viewport) return;
   const root = document.documentElement;
+  let fullHeight = viewport.height;
   const update = () => {
-    root.style.setProperty('--app-height', viewport.height + 'px');
+    fullHeight = Math.max(fullHeight, viewport.height);
+    const keyboard = fullHeight - viewport.height;
+    root.style.setProperty('--app-height', fullHeight + 'px');
     root.style.setProperty('--viewport-top', viewport.offsetTop + 'px');
-    scrollToEnd();
+    root.style.setProperty('--keyboard', keyboard + 'px');
+    root.classList.toggle('keyboard-open', keyboard > KEYBOARD_MIN_HEIGHT);
   };
   viewport.addEventListener('resize', update);
   viewport.addEventListener('scroll', update);
@@ -225,6 +231,14 @@ function start() {
   $('composer').addEventListener('submit', (event) => { event.preventDefault(); send(); });
   $('input').addEventListener('input', resizeInput);
   $('input').addEventListener('touchend', focusWithoutScrolling);
+  // Tapping the faded chat closes the keyboard.
+  $('scroller').addEventListener('click', () => $('input').blur());
+  // Settings fields can sit behind the keyboard, so bring the one in use into view.
+  ['settings-body', 'place-body'].forEach((id) => {
+    $(id).addEventListener('focusin', (event) => {
+      setTimeout(() => event.target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 350);
+    });
+  });
   $('input').addEventListener('keydown', (event) => {
     if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
       event.preventDefault();

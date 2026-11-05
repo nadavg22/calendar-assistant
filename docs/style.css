@@ -24,6 +24,9 @@
   --gradient: linear-gradient(100deg, #D65F28, #8A3DB6) border-box;
   --app-height: 100dvh;
   --viewport-top: 0px;
+  --keyboard: 0px;
+  --ease: cubic-bezier(.22, 1, .36, 1);
+  --keyboard-ease: cubic-bezier(.32, .72, 0, 1);
   --gutter: 16px;
   --radius: 22px;
   color-scheme: dark;
@@ -93,8 +96,13 @@ svg { display: block; width: 22px; height: 22px; fill: none; stroke: currentColo
   border: 1px solid var(--edge);
   border-radius: var(--radius);
   background: var(--glass);
-  -webkit-backdrop-filter: blur(26px) saturate(150%);
-  backdrop-filter: blur(26px) saturate(150%);
+}
+
+/* Real blur only where content passes behind. iPhones redraw it on every frame, so it stays off everything else. */
+.week, .composer {
+  background: rgb(30 28 38 / .55);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  backdrop-filter: blur(22px) saturate(150%);
 }
 
 .view {
@@ -150,6 +158,10 @@ svg { display: block; width: 22px; height: 22px; fill: none; stroke: currentColo
 
 .scroller { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 
+/* With the keyboard open the chat stays still and fades, and only the message box rises. */
+#scroller { transition: opacity .32s var(--keyboard-ease); }
+.keyboard-open #scroller { opacity: .28; }
+
 /* Week strip */
 .week {
   display: grid;
@@ -188,7 +200,7 @@ svg { display: block; width: 22px; height: 22px; fill: none; stroke: currentColo
 .empty { display: grid; place-items: center; height: 100%; font-size: 24px; font-weight: 500; }
 
 .log { display: flex; flex-direction: column; gap: 10px; padding: 14px var(--gutter) 6px; }
-.message { max-width: 88%; padding: 11px 15px; border: 1px solid var(--edge); border-radius: 20px; background: var(--glass); -webkit-backdrop-filter: blur(22px); backdrop-filter: blur(22px); }
+.message { max-width: 88%; padding: 11px 15px; border: 1px solid var(--edge); border-radius: 20px; background: var(--glass); }
 .message.user { align-self: flex-end; border-color: transparent; border-end-end-radius: 6px; background: var(--gradient); }
 .message.assistant { align-self: flex-start; border-end-start-radius: 6px; }
 .message.user p { font-weight: 500; }
@@ -202,11 +214,16 @@ svg { display: block; width: 22px; height: 22px; fill: none; stroke: currentColo
 .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
 
 .composer {
+  position: relative;
+  z-index: 2;
   flex: none;
   margin: 6px var(--gutter) calc(10px + env(safe-area-inset-bottom));
   padding: 10px 8px 6px 16px;
   border-radius: 24px;
+  transition: transform .34s var(--keyboard-ease);
+  will-change: transform;
 }
+.keyboard-open .composer { transform: translate3d(0, calc(env(safe-area-inset-bottom) - var(--keyboard)), 0); }
 .composer textarea {
   display: block;
   width: 100%;
@@ -288,7 +305,7 @@ input:focus, select:focus, .section-body textarea:focus { border-color: rgb(255 
 .setup h1 { font-size: 30px; font-weight: 600; }
 
 /* Settings */
-.settings { display: grid; align-content: start; gap: 10px; padding: 4px var(--gutter) calc(24px + env(safe-area-inset-bottom)); }
+.settings { display: grid; align-content: start; gap: 10px; padding: 4px var(--gutter) calc(24px + env(safe-area-inset-bottom) + var(--keyboard)); }
 .section summary {
   display: flex;
   align-items: center;
@@ -359,18 +376,18 @@ dialog::backdrop { background: rgb(0 0 0 / .55); }
 .sheet[open] { display: flex; flex-direction: column; }
 #place-body { display: block; }
 
-/* Motion: short and soft, and off for anyone who chose Reduce Motion. */
-@keyframes rise { from { opacity: 0; transform: translateY(10px); } }
-@keyframes appear { from { opacity: 0; transform: scale(.96); } }
-@keyframes sheet-up { from { opacity: 0; transform: translateY(32px); } }
+/* Motion: soft and unhurried, and off for anyone who chose Reduce Motion. */
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } }
+@keyframes appear { from { opacity: 0; transform: scale(.94); } }
+@keyframes sheet-up { from { opacity: 0; transform: translateY(44px); } }
 
-.message.enter, .proposal { animation: rise .26s cubic-bezier(.2, .8, .2, 1); }
-.notice[open] { animation: appear .2s cubic-bezier(.2, .8, .2, 1); }
-.sheet[open] { animation: sheet-up .26s cubic-bezier(.2, .8, .2, 1); }
+.message.enter, .proposal { animation: rise .46s var(--ease); }
+.notice[open] { animation: appear .34s var(--ease); }
+.sheet[open] { animation: sheet-up .44s var(--ease); }
 
-.primary, .outline, .send, .icon, .date, .place, .link, .language { transition: transform .12s, background-color .15s; }
-.primary:active, .outline:active, .send:active, .icon:active, .date:active, .language:active { transform: scale(.95); }
-.section summary::after { transition: transform .2s; }
+.primary, .outline, .send, .icon, .date, .place, .link, .language { transition: transform .28s var(--ease), background-color .28s var(--ease); }
+.primary:active, .outline:active, .send:active, .icon:active, .date:active, .language:active { transform: scale(.96); transition-duration: .1s; }
+.section summary::after { transition: transform .36s var(--ease); }
 .section[open] summary::after { transform: rotate(180deg); }
 
 @media (prefers-reduced-motion: reduce) {

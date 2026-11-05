@@ -4,8 +4,9 @@ import { animate, call, el, getConnection, load, save, slideClosed, slideOpen } 
 const WEEK_KEY = 'week';
 const MAX_MARKS = 4;
 const SWIPE_DISTANCE = 45;
-const DRAG_FACTOR = 0.45;
-const SLIDE_DISTANCE = 48;
+const DRAG_FACTOR = 0.7;
+const SLIDE_DISTANCE = 70;
+const SLIDE_OUT_MS = 150;
 const EVENT_COLORS = {
   1: '#7986CB', 2: '#33B679', 3: '#8E24AA', 4: '#E67C73', 5: '#F6BF26', 6: '#F4511E',
   7: '#039BE5', 8: '#616161', 9: '#3F51B5', 10: '#0B8043', 11: '#D50000',
@@ -125,14 +126,21 @@ export function setupWeek(onHeightChange) {
     }
   }
 
-  function move(step) {
+  // The old week glides out from wherever it is, then the new one glides in.
+  async function move(step, from = 0) {
     offset += step;
     selected = null;
-    slideFrom = step * SLIDE_DISTANCE;
-    if (weeks[offset]) {
-      data = weeks[offset];
-      render();
+    const next = weeks[offset];
+    if (next) {
+      const strip = $('week');
+      await animate(strip, [
+        { transform: `translateX(${from}px)`, opacity: 1 },
+        { transform: `translateX(${-step * SLIDE_DISTANCE}px)`, opacity: 0 },
+      ], SLIDE_OUT_MS);
+      data = next;
     }
+    slideFrom = step * SLIDE_DISTANCE;
+    if (next) render();
     refresh();
   }
 
@@ -158,7 +166,7 @@ export function setupWeek(onHeightChange) {
       const dragged = strip.style.transform;
       strip.style.transform = '';
       start = null;
-      if (Math.abs(distance) >= SWIPE_DISTANCE) move(distance < 0 ? 1 : -1);
+      if (Math.abs(distance) >= SWIPE_DISTANCE) move(distance < 0 ? 1 : -1, distance * DRAG_FACTOR);
       else if (dragged) animate(strip, [{ transform: dragged }, { transform: 'none' }]);
     });
   }

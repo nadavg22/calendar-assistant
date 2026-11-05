@@ -87,8 +87,8 @@ export function showNotice(text) {
   if (!dialog.open) dialog.showModal();
 }
 
-const EASE = 'cubic-bezier(.2, .8, .2, 1)';
-const DURATION = 240;
+const EASE = 'cubic-bezier(.22, 1, .36, 1)';
+const DURATION = 420;
 
 // Plays an animation and resolves when it ends. People who turned on Reduce Motion skip it.
 export function animate(node, keyframes, duration = DURATION) {
