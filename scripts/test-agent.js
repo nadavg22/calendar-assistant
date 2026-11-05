@@ -62,6 +62,9 @@ Object.assign(globalThis, {
   }),
 });
 
+const calendarSource = fs.readFileSync(path.join(__dirname, '../backend/calendar.gs'), 'utf8');
+vm.runInThisContext(calendarSource.slice(calendarSource.indexOf('function guestRecord_'), calendarSource.indexOf('// Changes can include')));
+
 ['ai', 'session', 'tools', 'agent', 'api'].forEach((file) => {
   vm.runInThisContext(fs.readFileSync(path.join(__dirname, '../backend', file + '.gs'), 'utf8'));
 });
@@ -207,6 +210,35 @@ const tests = {
       { type: 'text', text: 'It is ' },
       { type: 'text', text: 'open.' },
     ]), 'It is open.');
+  },
+  'inviting guests is refused directly and must be confirmed'() {
+    scripted = [toolUse('create_event', { ...event, guests: ['a@b.co'], calendar_stated_by_user: true }), say('Confirm?')];
+    handleChat('s', 'Add gym and invite a@b.co');
+    assert.deepStrictEqual(calls, []);
+    assert.strictEqual(lastToolResult().is_error, true);
+  },
+  'changing guests is refused directly'() {
+    scripted = [toolUse('update_event', { event_id: 'Personal:1', changes: { add_guests: ['a@b.co'] } }), say('Confirm?')];
+    handleChat('s', 'Invite a@b.co');
+    assert.deepStrictEqual(calls, []);
+    assert.strictEqual(lastToolResult().is_error, true);
+  },
+  'a proposal with a bad guest address is rejected'() {
+    scripted = [toolUse('propose_actions', { summary: 'S', done_message: 'D', actions: [{ type: 'create', event: { ...event, guests: ['dana'] } }] }), say('Hm')];
+    assert.strictEqual(handleChat('s', 'Invite Dana').pending, null);
+    assert.ok(lastToolResult().content.includes('valid email'));
+  },
+  'guests go through once confirmed'() {
+    scripted = [toolUse('propose_actions', { summary: 'S', done_message: 'Invited.', actions: [{ type: 'create', event: { ...event, guests: ['a@b.co'] } }] }), say('Sure?')];
+    const proposed = handleChat('s', 'Invite a@b.co');
+    assert.deepStrictEqual(calls, []);
+    assert.strictEqual(confirmPending('s', proposed.pending.id).reply, 'Invited.');
+    assert.strictEqual(calls.length, 1);
+  },
+  'attendee list keeps replies, skips duplicates, and removes'() {
+    const current = [{ email: 'a@b.co', responseStatus: 'accepted' }, { email: 'x@y.co' }];
+    const updated = updatedAttendees_(current, ['A@B.co', 'new@c.co'], ['x@y.co']);
+    assert.deepStrictEqual(updated, [{ email: 'a@b.co', responseStatus: 'accepted' }, { email: 'new@c.co' }]);
   },
   'a wrong token is rejected and does nothing'() {
     assert.deepStrictEqual(post({ token: 'wrong', action: 'chat', session: 's', message: 'Hi' }), { ok: false, error: 'unauthorized' });

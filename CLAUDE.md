@@ -26,7 +26,9 @@ Resume work from `PROGRESS.md`. Update it after every completed step.
 | `tests.gs` | Test functions run from the Apps Script editor |
 
 ## Key decisions
-- **App only.** No iOS Shortcut, Siri, Back Tap or Action button. Input is typing or the iOS keyboard mic. The app does not read replies aloud.
+- **App only.** No iOS Shortcut, Siri, Back Tap or Action button. Input is typing, the iOS keyboard mic, or the in-app mic button (`docs/voice.js`, browser speech recognition, which Apple supports unevenly in Home Screen apps). The app does not read replies aloud.
+- **Week strip:** `getWeek` reads calendars directly with no AI and doesn't count toward the daily cap.
+- **Guests** are email addresses the owner gives. Anything that invites or changes guests goes through `propose_actions`, because Google emails them.
 - **Models:** `claude-sonnet-5-5` for complex requests, `claude-haiku-5-5` for simple ones. One small Haiku call labels each request, then that model runs the whole request. Live-info questions count as complex.
 - **API details (verified 2026-11-05, recheck docs before writing `ai.gs`):** header `anthropic-version: 2026-10-21`; no `temperature`; no forced `tool_choice`; web search is `web_search_20260318` at $0.01 per search; `pause_turn` means resend the assistant message unchanged; `fallbacks: "default"` on Sonnet only; web search `user_location` rejects country code IL, so send only the timezone.
 - **Prompt caching:** tools and system prompt stay byte-identical between requests. Anything that changes, such as the current date, goes after the cached part.
@@ -45,7 +47,7 @@ Resume work from `PROGRESS.md`. Update it after every completed step.
 - Run `scripts/check-secrets.sh` before every commit and push. Commit or push only when the owner says so.
 
 ## Visual style
-Minimal, earthy, Bauhaus-inspired. Warm paper background, charcoal text, terracotta as the single accent, ochre and olive for small details; deep warm brown-black in dark mode. Jost for English and Heebo for Hebrew, both stored in the app. Thin straight rules, square corners, no shadows or gradients, strict grid. Chat messages are separated by lines, not bubbles. Settings swatches show Google's real event colors. Hebrew displays right-to-left.
+Always dark, minimal, warm. Near-black background, cream text, one soft orange accent. Source Serif 4 for English and Frank Ruhl Libre for Hebrew in chat and headings, the system font for small labels; both serifs are stored in the app. Soft rounded corners, no decorative shapes, no shadows, lots of space. User messages are small and muted, assistant replies are larger serif text. Settings swatches show Google's real event colors. Hebrew displays right-to-left.
 
 ## Conventions
 - Apps Script V8, plain functions, one responsibility per file. All Apps Script files share one global scope, so function names must be unique across files.

@@ -23,6 +23,7 @@ const EVENT_PROPERTIES = {
   description: { type: 'string' },
   category: { type: 'string', description: 'One short English word for the kind of event, e.g. workout, rehearsal, studio. Sets the color.' },
   reminders: REMINDERS_SCHEMA,
+  guests: { type: 'array', items: { type: 'string' }, description: 'Email addresses to invite. Google emails them an invitation.' },
 };
 
 const CHANGE_PROPERTIES = {
@@ -34,6 +35,8 @@ const CHANGE_PROPERTIES = {
   category: { type: 'string' },
   reminders: REMINDERS_SCHEMA,
   calendar: { type: 'string', description: 'Move the event to this calendar label.' },
+  add_guests: { type: 'array', items: { type: 'string' }, description: 'Email addresses to invite.' },
+  remove_guests: { type: 'array', items: { type: 'string' }, description: 'Email addresses to remove.' },
 };
 
 const TOOL_DEFINITIONS = [
@@ -75,7 +78,7 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: 'create_event',
-    description: 'Create one event immediately. Only for a single event on a calendar the owner named in this request. ' +
+    description: 'Create one event immediately. Only for a single event with no guests, on a calendar the owner named in this request. ' +
       'Applies color rules and reminders. Anything else goes through propose_actions.',
     input_schema: {
       type: 'object',
@@ -88,7 +91,7 @@ const TOOL_DEFINITIONS = [
   {
     name: 'update_event',
     description: 'Change an event\'s title, location, description, category or reminders immediately. ' +
-      'Changing its time or calendar is a move and goes through propose_actions.',
+      'Changing its time or calendar is a move, and changing guests emails people: both go through propose_actions.',
     input_schema: {
       type: 'object',
       properties: {
@@ -106,12 +109,12 @@ const TOOL_DEFINITIONS = [
   {
     name: 'propose_actions',
     description: 'Store actions for the owner to confirm with a button. Nothing happens until they confirm. ' +
-      'Use for: deleting, moving, creating more than one event, or creating an event on a calendar you chose yourself. ' +
+      'Use for: deleting, moving, creating more than one event, adding or removing guests, or creating an event on a calendar you chose yourself. ' +
       'A new proposal replaces the previous one.',
     input_schema: {
       type: 'object',
       properties: {
-        summary: { type: 'string', description: 'What will happen, naming each event, its calendar, day, date and time. In the owner\'s language.' },
+        summary: { type: 'string', description: 'What will happen, naming each event, its calendar, day, date and time, and every guest\'s email address. In the owner\'s language.' },
         done_message: { type: 'string', description: 'Short past-tense message shown after they confirm. In the owner\'s language.' },
         actions: {
           type: 'array',
@@ -192,6 +195,7 @@ function toolCreateEvent_(input, ctx) {
   if (input.calendar_stated_by_user !== true) {
     throw new Error('You chose this calendar yourself, so the owner must confirm it. Use propose_actions.');
   }
+  if (input.guests && input.guests.length) throw new Error('Inviting guests needs confirmation. Use propose_actions.');
   if (ctx.createdCount >= 1) throw new Error('Creating more than one event needs confirmation. Use propose_actions.');
   const event = createEvent(input);
   ctx.createdCount += 1;
@@ -203,6 +207,9 @@ function toolUpdateEvent_(input, ctx) {
   const changes = input.changes || {};
   if (changes.start !== undefined || changes.end !== undefined || changes.calendar !== undefined) {
     throw new Error('Moving an event needs confirmation. Use propose_actions.');
+  }
+  if (changes.add_guests !== undefined || changes.remove_guests !== undefined) {
+    throw new Error('Changing guests needs confirmation. Use propose_actions.');
   }
   const event = updateEvent(input.event_id, changes);
   rememberEvents_(ctx.session, [event]);
@@ -221,15 +228,23 @@ function toolProposeActions_(input, ctx) {
   return { status: 'waiting_for_owner', note: 'Nothing has changed yet. Tell the owner what you propose and ask them to confirm.' };
 }
 
+function checkGuests_(guests) {
+  (guests || []).forEach(function (email) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) throw new Error('Not a valid email address: ' + email);
+  });
+}
+
 function validateAction_(action) {
   if (action.type === 'create') {
     const event = action.event || {};
+    checkGuests_(event.guests);
     requireWritable_(resolveCalendar_(event.calendar));
     if (!event.title) throw new Error('A new event needs a title.');
     if (parseToMs_(event.end) <= parseToMs_(event.start)) throw new Error('The end must be after the start.');
   } else if (action.type === 'update' || action.type === 'delete') {
     requireWritable_(splitEventId_(action.event_id).calendar);
     if (action.type === 'update' && !action.changes) throw new Error('An update needs changes.');
+    if (action.type === 'update') checkGuests_(action.changes.add_guests);
   } else {
     throw new Error('Unknown action type: ' + action.type);
   }

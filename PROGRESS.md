@@ -33,10 +33,17 @@ Full plan: see CLAUDE.md for decisions. Stop after each step so the owner can te
 ## 5. PWA
 - [x] Chat screen, Settings screen, installability built in `docs/`; previewed in Chrome at 390px, light and dark, with a fake backend
 - [x] `scripts/check-secrets.sh` written, also runs as a git pre-commit hook
-- [ ] GitHub repo created, first commit pushed, Pages published
-- [ ] Added to Home Screen, token entered in the installed app
+- [x] GitHub repo created, first commit pushed, Pages published at nadavg22.github.io/calendar-assistant (repo email is GitHub's no-reply address)
+- [x] Added to Home Screen, token entered in the installed app
+
+## 5b. Owner's changes after first install
+- [x] Dark minimal redesign, shapes removed, serif fonts, new icon
+- [x] Week strip with day view
+- [x] Guests (emails typed by the owner, always confirmed)
+- [ ] In-app mic button tested on the iPhone, and keyboard mic fixed if a setting was off
 
 ## 6. Final checklist
+- [ ] Guests: invite a test address and confirm the email arrives
 - [ ] Hebrew input
 - [ ] Relative dates
 - [ ] "3 workouts this week"

@@ -1,10 +1,10 @@
 // Keeps the app itself available offline. Requests to the backend are never cached.
 // Serves the saved copy at once and refreshes it in the background, so updates appear on the next open.
-const CACHE = 'calendar-shell-v1';
+const CACHE = 'calendar-shell-v2';
 const SHELL = [
-  './', 'index.html', 'style.css', 'app.js', 'api.js', 'settings.js', 'manifest.webmanifest',
+  './', 'index.html', 'style.css', 'app.js', 'api.js', 'settings.js', 'week.js', 'voice.js', 'manifest.webmanifest',
   'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png',
-  'fonts/jost-latin-wght-normal.woff2', 'fonts/heebo-hebrew-wght-normal.woff2',
+  'fonts/source-serif-4-latin-wght-normal.woff2', 'fonts/frank-ruhl-libre-hebrew-wght-normal.woff2',
 ];
 
 self.addEventListener('install', (event) => {

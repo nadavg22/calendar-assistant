@@ -1,21 +1,15 @@
-// Draws the app icon (circle, square, triangle) as PNG files. Run: node scripts/make-icons.js
+// Draws the app icon, one soft orange dot on warm black, as PNG files. Run: node scripts/make-icons.js
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 
-const PAPER = [243, 237, 226];
-const TERRACOTTA = [169, 74, 34];
-const CHARCOAL = [42, 38, 34];
-const OCHRE = [200, 150, 62];
+const BACKGROUND = [26, 25, 22];
+const ACCENT = [217, 119, 87];
 const SAMPLES = 4;
 
-// Coordinates run 0 to 1. Everything sits inside the middle 70% so masks don't cut it.
+// Coordinates run 0 to 1.
 function colorAt(x, y) {
-  if ((x - 0.36) ** 2 + (y - 0.36) ** 2 <= 0.19 ** 2) return TERRACOTTA;
-  if (x >= 0.5 && x <= 0.8 && y >= 0.5 && y <= 0.8) return CHARCOAL;
-  const t = (y - 0.5) / 0.3;
-  if (t >= 0 && t <= 1 && x >= 0.35 - 0.15 * t && x <= 0.35 + 0.15 * t) return OCHRE;
-  return PAPER;
+  return (x - 0.5) ** 2 + (y - 0.5) ** 2 <= 0.17 ** 2 ? ACCENT : BACKGROUND;
 }
 
 function crc32(buffer) {

@@ -6,23 +6,21 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'">
 <title>Calendar</title>
 <meta name="description" content="Personal calendar assistant">
-<meta name="theme-color" content="#F3EDE2" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#1C1814" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#1A1916">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Calendar">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon-192.png">
-<link rel="preload" href="fonts/jost-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/source-serif-4-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="style.css">
 <script type="module" src="app.js"></script>
 </head>
 <body>
 
 <main id="setup-view" class="view setup" hidden>
-  <div class="mark mark-large" aria-hidden="true"><i></i><i></i><i></i></div>
   <h1>Calendar</h1>
   <form id="setup-form">
     <label>Web app URL
@@ -38,13 +36,21 @@
 
 <div id="chat-view" class="view" hidden>
   <header class="bar">
-    <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>Calendar</div>
-    <button id="open-settings" class="link" type="button">Settings</button>
-  </header>
-  <div id="scroller" class="scroller">
-    <div id="empty" class="empty">
-      <div class="mark mark-large" aria-hidden="true"><i></i><i></i><i></i></div>
+    <h1 id="week-title" class="title">Calendar</h1>
+    <div class="bar-actions">
+      <button id="week-prev" class="icon" type="button" aria-label="Previous week">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <button id="week-next" class="icon" type="button" aria-label="Next week">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+      </button>
+      <button id="open-settings" class="link" type="button">Settings</button>
     </div>
+  </header>
+  <div id="week" class="week"></div>
+  <div id="day" class="day" hidden></div>
+  <div id="scroller" class="scroller">
+    <p id="empty" class="empty">How can I help?</p>
     <ol id="log" class="log" aria-live="polite"></ol>
     <section id="proposal" class="proposal" hidden>
       <p id="proposal-text" dir="auto"></p>
@@ -55,24 +61,29 @@
     </section>
   </div>
   <form id="composer" class="composer">
-    <textarea id="input" rows="2" dir="auto" enterkeyhint="send" placeholder="Message" aria-label="Message"></textarea>
-    <button id="send" class="send" type="submit" aria-label="Send">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20V4M5 11l7-7 7 7" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-    </button>
+    <textarea id="input" rows="1" dir="auto" enterkeyhint="send" placeholder="Message" aria-label="Message"></textarea>
+    <div class="composer-actions">
+      <button id="voice-language" class="language" type="button" aria-label="Speech language">EN</button>
+      <button id="mic" class="icon" type="button" aria-label="Speak" aria-pressed="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+      </button>
+      <button id="send" class="send" type="submit" aria-label="Send">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
+      </button>
+    </div>
   </form>
 </div>
 
 <div id="settings-view" class="view" hidden>
   <header class="bar">
     <button id="close-settings" class="link" type="button">Back</button>
-    <div class="brand">Settings</div>
+    <h1 class="title">Settings</h1>
     <span class="bar-spacer"></span>
   </header>
   <div id="settings-body" class="scroller settings"></div>
 </div>
 
 <dialog id="notice" class="notice">
-  <div class="mark" aria-hidden="true"><i></i><i></i><i></i></div>
   <p id="notice-text" dir="auto"></p>
   <button id="notice-close" class="primary" type="button">OK</button>
 </dialog>
@@ -80,7 +91,7 @@
 <dialog id="place-dialog" class="sheet">
   <header class="bar">
     <button id="place-close" class="link" type="button">Close</button>
-    <div class="brand" id="place-title">Place</div>
+    <h1 class="title" id="place-title">Place</h1>
     <span class="bar-spacer"></span>
   </header>
   <div id="place-body" class="scroller settings"></div>

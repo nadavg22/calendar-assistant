@@ -87,6 +87,8 @@ function summarizeEvent_(calendar, event) {
     allDay: !event.start.dateTime,
     location: event.location || '',
     busy: event.transparency !== 'transparent',
+    colorId: event.colorId || '',
+    guests: (event.attendees || []).map(function (a) { return a.email; }),
   };
 }
 
@@ -145,11 +147,29 @@ function createEvent(args) {
   if (args.description) resource.description = args.description;
   const colorId = pickColorId_(args.category, args.title, calendar);
   if (colorId) resource.colorId = colorId;
+  if (args.guests && args.guests.length) resource.attendees = args.guests.map(guestRecord_);
 
-  return summarizeEvent_(calendar, Calendar.Events.insert(resource, calendar.id));
+  const options = resource.attendees ? { sendUpdates: 'all' } : {};
+  return summarizeEvent_(calendar, Calendar.Events.insert(resource, calendar.id, options));
 }
 
-// Changes can include title, start, end, location, description, category, reminders, calendar.
+function guestRecord_(email) {
+  return { email: String(email).trim() };
+}
+
+// The attendee list after adding and removing guests, keeping everyone's existing replies.
+function updatedAttendees_(current, addGuests, removeGuests) {
+  const removed = (removeGuests || []).map(function (email) { return String(email).trim().toLowerCase(); });
+  const kept = (current || []).filter(function (a) { return removed.indexOf(a.email.toLowerCase()) < 0; });
+  const known = kept.map(function (a) { return a.email.toLowerCase(); });
+  const added = (addGuests || []).filter(function (email) {
+    return known.indexOf(String(email).trim().toLowerCase()) < 0;
+  });
+  return kept.concat(added.map(guestRecord_));
+}
+
+// Changes can include title, start, end, location, description, category, reminders, calendar,
+// add_guests and remove_guests.
 // A new start with no new end keeps the event's length.
 function updateEvent(eventId, changes) {
   const target = splitEventId_(eventId);
@@ -182,8 +202,13 @@ function updateEvent(eventId, changes) {
       calendar = destination;
     }
   }
+  if (changes.add_guests !== undefined || changes.remove_guests !== undefined) {
+    resource.attendees = updatedAttendees_(current.attendees, changes.add_guests, changes.remove_guests);
+  }
+  // Guests hear about changes to an event they were invited to.
+  const hasGuests = (current.attendees || []).length > 0 || (resource.attendees || []).length > 0;
   const updated = Object.keys(resource).length
-    ? Calendar.Events.patch(resource, calendar.id, googleId)
+    ? Calendar.Events.patch(resource, calendar.id, googleId, hasGuests ? { sendUpdates: 'all' } : {})
     : Calendar.Events.get(calendar.id, googleId);
   return summarizeEvent_(calendar, updated);
 }
@@ -199,6 +224,7 @@ function deleteEvent(eventId) {
   const target = splitEventId_(eventId);
   requireWritable_(target.calendar);
   const event = Calendar.Events.get(target.calendar.id, target.googleId);
-  Calendar.Events.remove(target.calendar.id, target.googleId);
+  const options = (event.attendees || []).length > 0 ? { sendUpdates: 'all' } : {};
+  Calendar.Events.remove(target.calendar.id, target.googleId, options);
   return { deleted: event.summary || '(no title)', calendar: target.calendar.label };
 }

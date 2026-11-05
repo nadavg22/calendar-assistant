@@ -3,6 +3,8 @@ import {
   call, getConnection, isHebrew, isValidUrl, load, post, remove, save, setConnection, showNotice,
 } from './api.js';
 import { openSettings } from './settings.js';
+import { setupVoice } from './voice.js';
+import { setupWeek } from './week.js';
 
 const CHAT_KEY = 'chat';
 const SESSION_HOURS = 6;
@@ -13,6 +15,7 @@ const views = ['setup-view', 'chat-view', 'settings-view'];
 
 let chat = null;
 let busy = false;
+let week = null;
 
 export function showView(id) {
   views.forEach((view) => { $(view).hidden = view !== id; });
@@ -86,7 +89,7 @@ function setBusy(value) {
     item.id = 'thinking';
     item.className = 'thinking';
     item.setAttribute('aria-label', 'Thinking');
-    item.innerHTML = '<i></i><i></i><i></i>';
+    item.textContent = '...';
     $('log').append(item);
     scrollToEnd();
   }
@@ -106,6 +109,7 @@ function applyResult(result) {
   saveChat();
   renderPending();
   scrollToEnd();
+  week.refresh();
 }
 
 async function run(action, data) {
@@ -174,6 +178,7 @@ async function connect(event) {
 export function showChat() {
   showView('chat-view');
   render();
+  week.refresh();
 }
 
 export function signOut() {
@@ -212,6 +217,11 @@ function start() {
   $('open-settings').addEventListener('click', () => openSettings({ showView, showChat, signOut, handleError }));
   $('notice-close').addEventListener('click', () => $('notice').close());
 
+  week = setupWeek(scrollToEnd);
+  setupVoice(resizeInput);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && !$('chat-view').hidden) week.refresh();
+  });
   trackViewport();
   if (getConnection()) showChat();
   else showSetup();

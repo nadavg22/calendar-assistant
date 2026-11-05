@@ -67,6 +67,7 @@ function routeAction_(body) {
     case 'chat': return actionChat_(body);
     case 'confirm': return confirmPending(requireSession_(body), body.pendingId);
     case 'cancel': return cancelPending(requireSession_(body), body.pendingId);
+    case 'getWeek': return getWeek_(body.offset);
     case 'getSettings': return getSettings_();
     case 'saveCalendars': return saveCalendars_(body.calendars);
     case 'saveColorRules': return saveColorRules_(body.rules);
@@ -97,6 +98,18 @@ function actionChat_(body) {
 function actionAutofillPlace_(body) {
   countRequest_();
   return { draft: lookupPlace(String(body.query || '')) };
+}
+
+// One Sunday-to-Saturday week for the calendar preview. offset 0 is this week. Uses no AI.
+function getWeek_(offset) {
+  const today = getCurrentDatetime().date;
+  const weekday = Number(Utilities.formatDate(new Date(localMs_(today, 720)), TZ, 'u')) % 7;
+  const sunday = addDays_(today, 7 * (Number(offset) || 0) - weekday);
+  const days = [0, 1, 2, 3, 4, 5, 6].map(function (i) { return addDays_(sunday, i); });
+  const events = listEvents(sunday, days[6]).map(function (e) {
+    return { title: e.title, calendar: e.calendar, start: e.start, end: e.end, allDay: e.allDay, colorId: e.colorId };
+  });
+  return { today: today, days: days, events: events };
 }
 
 // Adds one to today's count, or stops the request if the cap is reached.
